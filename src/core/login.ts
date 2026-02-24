@@ -1,6 +1,6 @@
 // 登录 biji.com
 import type { Page } from 'puppeteer-core';
-import { withBrowser } from '@joohw/shared-mcp-browser/browser';
+import { withBrowser } from '@asd345gh/mcpkit/browser';
 import { BIJI_WEB_URL } from '../config/index.js';
 
 export async function loginBiji(): Promise<void> {

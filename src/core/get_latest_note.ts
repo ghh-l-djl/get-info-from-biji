@@ -1,6 +1,6 @@
 // 获取最新笔记
 import type { Page } from 'puppeteer-core';
-import { withLoggedInPage } from '@joohw/shared-mcp-browser/browser';
+import { withLoggedInPage } from '@asd345gh/mcpkit/browser';
 import { saveNoteAsMarkdown } from './get_note_detail.js';
 
 /**

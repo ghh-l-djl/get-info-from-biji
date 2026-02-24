@@ -1,6 +1,6 @@
 // 检查登录状态
 import type { Page } from 'puppeteer-core';
-import { withLoggedInPage } from '@joohw/shared-mcp-browser/browser';
+import { withLoggedInPage } from '@asd345gh/mcpkit/browser';
 import { BIJI_WEB_URL } from '../config/index.js';
 
 export interface LoginState {

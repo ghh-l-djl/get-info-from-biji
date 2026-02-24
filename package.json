@@ -32,7 +32,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@joohw/shared-mcp-browser": "file:../shared-mcp-browser",
+    "@asd345gh/mcpkit": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "puppeteer-core": "^24.29.1"
   },

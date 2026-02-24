@@ -1,7 +1,7 @@
 // 获取笔记详情并保存为 Markdown
 import type { Page } from 'puppeteer-core';
-import { withLoggedInPage } from '@joohw/shared-mcp-browser/browser';
-import { saveToCache, loadFromCacheWithTtl } from '@joohw/shared-mcp-browser/utils';
+import { withLoggedInPage } from '@asd345gh/mcpkit/browser';
+import { saveToCache, loadFromCacheWithTtl } from '@asd345gh/mcpkit/utils';
 import { convertToMarkdown } from './convert_to_md.js';
 import type { BijiNoteDetail, BijiApiResponse } from '../types/note.js';
 import { CACHE_TTL_NOTE_DETAIL } from '../config/index.js';

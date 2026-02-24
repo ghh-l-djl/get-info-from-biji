@@ -184,11 +184,14 @@ npm run biji get-latest ~/Documents/MyNotes
 │   ├── utils/
 │   │   └── url.ts               # URL 解析工具
 │   └── types/note.ts            # 类型定义
-└── shared-mcp-browser/          # 共享库
-    ├── src/browser/              # 浏览器工具
-    ├── src/mcp/                  # MCP 工具
-    └── src/utils/                # 缓存等工具
 ```
+
+## 依赖说明
+
+本项目使用 `@asd345gh/mcpkit` npm 包提供浏览器自动化和 MCP 工具支持：
+- `@asd345gh/mcpkit/browser` - Puppeteer 浏览器工具（启动浏览器、登录状态管理）
+- `@asd345gh/mcpkit/mcp` - MCP 服务器创建工具
+- `@asd345gh/mcpkit/utils` - 缓存等实用工具
 
 ## 默认配置
 
