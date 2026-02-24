@@ -8,7 +8,14 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { getTools } from './tools.js';
-import { handleLogin, handleCheckLogin, handleGetNoteDetail, handleSaveNoteAsMarkdown } from './handlers.js';
+import {
+  handleLogin,
+  handleCheckLogin,
+  handleGetNoteDetail,
+  handleSaveNoteAsMarkdown,
+  handleGetLatestNote,
+  handleGetLatestOriginalNote,
+} from './handlers.js';
 
 // 创建 MCP 服务器
 const server = new Server(
@@ -41,10 +48,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'biji_check_login':
         return await handleCheckLogin();
       case 'biji_get_note_detail':
-        return await handleGetNoteDetail(args as { noteId?: string });
+        return await handleGetNoteDetail(args as { urlOrId?: string });
       case 'biji_save_note_as_markdown':
         return await handleSaveNoteAsMarkdown(args as {
-          noteId?: string;
+          urlOrId?: string;
+          outputDir?: string;
+          imageFormat?: 'obsidian' | 'standard';
+        });
+      case 'biji_get_latest_note':
+        return await handleGetLatestNote(args as {
+          outputDir?: string;
+          imageFormat?: 'obsidian' | 'standard';
+        });
+      case 'biji_get_latest_original_note':
+        return await handleGetLatestOriginalNote(args as {
           outputDir?: string;
           imageFormat?: 'obsidian' | 'standard';
         });

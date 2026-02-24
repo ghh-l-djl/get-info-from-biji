@@ -11,7 +11,7 @@ const CACHE_OPTIONS = { appName: 'biji-cli' };
 /**
  * 通过 API 获取笔记详情（完整 JSON 数据）
  */
-async function getNoteDetailByApi(page: Page, noteId: string): Promise<BijiApiResponse> {
+async function getNoteDetailByApi(page: Page, noteId: string, isOriginal: boolean = false): Promise<BijiApiResponse> {
   let apiData: any = null;
   let dataResolved = false;
 
@@ -47,10 +47,9 @@ async function getNoteDetailByApi(page: Page, noteId: string): Promise<BijiApiRe
         }
 
         const data = await response.json();
-        apiData = data as BijiApiResponse;
+        apiData = data;
         dataResolved = true;
-        console.log('✅ 成功拦截到笔记数据');
-        console.log('数据结构:', JSON.stringify(Object.keys(data), null, 2));
+        console.log(`✅ 成功拦截到${isOriginal ? '原文' : ''}笔记数据`);
       } catch (e: any) {
         // 忽略 preflight 请求和其他无法解析的响应
         if (!e.message.includes('Could not load response body')) {
@@ -63,8 +62,12 @@ async function getNoteDetailByApi(page: Page, noteId: string): Promise<BijiApiRe
   page.on('response', responseHandler);
 
   try {
-    // 访问笔记页面
-    await page.goto(`https://www.biji.com/note/${noteId}`, {
+    // 构建笔记 URL
+    const noteUrl = isOriginal
+      ? `https://www.biji.com/note/${noteId}/web`
+      : `https://www.biji.com/note/${noteId}`;
+
+    await page.goto(noteUrl, {
       waitUntil: 'networkidle0',
       timeout: 30000,
     });
@@ -77,7 +80,7 @@ async function getNoteDetailByApi(page: Page, noteId: string): Promise<BijiApiRe
     }
 
     if (!apiData) {
-      throw new Error('未能获取到笔记数据，请确保已登录');
+      throw new Error(`未能获取到${isOriginal ? '原文' : ''}笔记数据，请确保已登录`);
     }
 
     // 验证数据结构
@@ -99,6 +102,7 @@ export interface SaveMarkdownOptions {
   noteId: string;
   outputDir: string;
   imageFormat?: 'obsidian' | 'standard';
+  isOriginal?: boolean; // 是否为原文笔记
 }
 
 export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<{
@@ -107,7 +111,7 @@ export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<
   imageCount: number;
   downloadedCount: number;
 }> {
-  const { noteId, outputDir, imageFormat = 'obsidian' } = options;
+  const { noteId, outputDir, imageFormat = 'obsidian', isOriginal = false } = options;
 
   // 从远程获取数据
   const apiData = await withLoggedInPage(
@@ -118,12 +122,13 @@ export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<
       loginUrlPatterns: ['/login', '/signin'],
     },
     async (page: Page) => {
-      return await getNoteDetailByApi(page, noteId);
+      return await getNoteDetailByApi(page, noteId, isOriginal);
     }
   );
 
   // 缓存原始数据
-  saveToCache(CACHE_OPTIONS, `notes/${noteId}.json`, apiData);
+  const cacheKey = isOriginal ? `notes/${noteId}_original.json` : `notes/${noteId}.json`;
+  saveToCache(CACHE_OPTIONS, cacheKey, apiData);
 
   // 转换为 Markdown
   const result = await convertToMarkdown(apiData, {
@@ -137,16 +142,17 @@ export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<
 /**
  * 获取笔记详情（返回简化的数据结构）
  */
-export async function getNoteDetail(noteId: string): Promise<BijiNoteDetail> {
+export async function getNoteDetail(noteId: string, isOriginal: boolean = false): Promise<BijiNoteDetail> {
   // 检查缓存
-  const cached = loadFromCacheWithTtl<BijiApiResponse>(CACHE_OPTIONS, `notes/${noteId}.json`, CACHE_TTL_NOTE_DETAIL);
+  const cacheKey = isOriginal ? `notes/${noteId}_original.json` : `notes/${noteId}.json`;
+  const cached = loadFromCacheWithTtl<BijiApiResponse>(CACHE_OPTIONS, cacheKey, CACHE_TTL_NOTE_DETAIL);
   if (cached) {
     return {
       noteId,
       title: cached.c.title,
       content: cached.c.content,
       images: [],
-      url: `https://www.biji.com/note/${noteId}`,
+      url: isOriginal ? `https://www.biji.com/note/${noteId}/web` : `https://www.biji.com/note/${noteId}`,
       publishTime: cached.c.createTime ? new Date(cached.c.createTime).toISOString() : undefined,
       wordCount: cached.c.content.length,
     };
@@ -161,33 +167,33 @@ export async function getNoteDetail(noteId: string): Promise<BijiNoteDetail> {
       loginUrlPatterns: ['/login', '/signin'],
     },
     async (page: Page) => {
-      return await getNoteDetailByApi(page, noteId);
+      return await getNoteDetailByApi(page, noteId, isOriginal);
     }
   );
 
   // 保存到缓存
-  saveToCache(CACHE_OPTIONS, `notes/${noteId}.json`, apiData);
+  saveToCache(CACHE_OPTIONS, cacheKey, apiData);
 
   return {
     noteId,
     title: apiData.c.title,
     content: apiData.c.content,
     images: [],
-    url: `https://www.biji.com/note/${noteId}`,
+    url: isOriginal ? `https://www.biji.com/note/${noteId}/web` : `https://www.biji.com/note/${noteId}`,
     publishTime: apiData.c.createTime ? new Date(apiData.c.createTime).toISOString() : undefined,
     wordCount: apiData.c.content.length,
   };
 }
 
 // 获取笔记详情（使用现有页面）
-export async function getNoteDetailRemote(page: Page, noteId: string): Promise<BijiNoteDetail> {
-  const apiData = await getNoteDetailByApi(page, noteId);
+export async function getNoteDetailRemote(page: Page, noteId: string, isOriginal: boolean = false): Promise<BijiNoteDetail> {
+  const apiData = await getNoteDetailByApi(page, noteId, isOriginal);
   return {
     noteId,
     title: apiData.c.title,
     content: apiData.c.content,
     images: [],
-    url: `https://www.biji.com/note/${noteId}`,
+    url: isOriginal ? `https://www.biji.com/note/${noteId}/web` : `https://www.biji.com/note/${noteId}`,
     publishTime: apiData.c.createTime ? new Date(apiData.c.createTime).toISOString() : undefined,
     wordCount: apiData.c.content.length,
   };
