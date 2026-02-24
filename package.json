@@ -1,0 +1,44 @@
+{
+  "name": "biji-cli",
+  "version": "1.0.0",
+  "description": "Get笔记 CLI 工具和 MCP 服务器 - 帮助用户获取和管理 Get笔记 内容",
+  "type": "module",
+  "main": "dist/mcp/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "biji": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "mcp": "node dist/mcp/index.js",
+    "biji": "tsx src/cli.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "biji",
+    "get笔记",
+    "content-fetcher",
+    "cli",
+    "automation"
+  ],
+  "author": "Joo <1546635571@qq.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@joohw/shared-mcp-browser": "file:../shared-mcp-browser",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "puppeteer-core": "^24.29.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
