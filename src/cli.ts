@@ -6,8 +6,7 @@ import { checkLoginState } from './core/check_login.js';
 import { saveNoteAsMarkdown } from './core/get_note_detail.js';
 import { getLatestNoteAsMarkdown, getLatestOriginalNoteAsMarkdown } from './core/get_latest_note.js';
 import { parseNoteIdFromUrl, isOriginalNoteUrl } from './utils/url.js';
-
-const DEFAULT_OUTPUT_DIR = '/Users/ghh/Documents/A第二大脑';
+import { OUTPUT_DIR, ASSETS_DIR } from './config/index.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -37,7 +36,7 @@ async function main() {
         process.exit(1);
       }
 
-      const outputDir = args[2] || DEFAULT_OUTPUT_DIR;
+      const outputDir = args[2] || OUTPUT_DIR;
       const noteId = parseNoteIdFromUrl(urlOrId);
       const isOriginal = isOriginalNoteUrl(urlOrId);
 
@@ -46,6 +45,7 @@ async function main() {
       const result = await saveNoteAsMarkdown({
         noteId,
         outputDir,
+        assetsDir: ASSETS_DIR,
         isOriginal,
       });
 
@@ -57,11 +57,11 @@ async function main() {
 
     case 'get-latest': {
       // 获取最新笔记
-      const outputDir = args[1] || DEFAULT_OUTPUT_DIR;
+      const outputDir = args[1] || OUTPUT_DIR;
 
       console.log('正在获取最新笔记...');
 
-      const result = await getLatestNoteAsMarkdown({ outputDir });
+      const result = await getLatestNoteAsMarkdown({ outputDir, assetsDir: ASSETS_DIR });
 
       console.log('\n✓ 保存成功！');
       console.log(`  - Markdown: ${result.mdPath}`);
@@ -71,11 +71,11 @@ async function main() {
 
     case 'get-latest-original': {
       // 获取最新原文笔记
-      const outputDir = args[1] || DEFAULT_OUTPUT_DIR;
+      const outputDir = args[1] || OUTPUT_DIR;
 
       console.log('正在获取最新原文笔记...');
 
-      const result = await getLatestOriginalNoteAsMarkdown({ outputDir });
+      const result = await getLatestOriginalNoteAsMarkdown({ outputDir, assetsDir: ASSETS_DIR });
 
       console.log('\n✓ 保存成功！');
       console.log(`  - Markdown: ${result.mdPath}`);
@@ -103,7 +103,7 @@ biji-cli - Get笔记 CLI 工具
   biji get-latest-original [outputDir] 获取最新一篇原文笔记并保存
 
 参数:
-  outputDir  可选，默认为 ~/Documents/A第二大脑
+  outputDir  可选，默认从配置文件读取（优先级: 命令行参数 > 配置文件 > 环境变量 > 默认值）
 
 示例:
   # 使用 URL 获取笔记

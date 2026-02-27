@@ -4,8 +4,7 @@ import { checkLoginState } from '../core/check_login.js';
 import { getNoteDetail, saveNoteAsMarkdown } from '../core/get_note_detail.js';
 import { getLatestNoteAsMarkdown, getLatestOriginalNoteAsMarkdown } from '../core/get_latest_note.js';
 import { parseNoteIdFromUrl, isOriginalNoteUrl } from '../utils/url.js';
-
-const DEFAULT_OUTPUT_DIR = '/Users/ghh/Documents/A第二大脑';
+import { OUTPUT_DIR, ASSETS_DIR } from '../config/index.js';
 
 export async function handleLogin() {
   try {
@@ -96,9 +95,10 @@ export async function handleGetNoteDetail(args: { urlOrId?: string }) {
 export async function handleSaveNoteAsMarkdown(args: {
   urlOrId?: string;
   outputDir?: string;
+  assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
 }) {
-  const { urlOrId, outputDir = DEFAULT_OUTPUT_DIR, imageFormat = 'obsidian' } = args || {};
+  const { urlOrId, outputDir = OUTPUT_DIR, assetsDir = ASSETS_DIR, imageFormat = 'obsidian' } = args || {};
 
   if (!urlOrId) {
     return {
@@ -121,6 +121,7 @@ export async function handleSaveNoteAsMarkdown(args: {
     const result = await saveNoteAsMarkdown({
       noteId,
       outputDir,
+      assetsDir,
       imageFormat,
       isOriginal,
     });
@@ -154,13 +155,14 @@ Markdown 文件: ${result.mdPath}
 
 export async function handleGetLatestNote(args: {
   outputDir?: string;
+  assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
 }) {
-  const { outputDir = DEFAULT_OUTPUT_DIR, imageFormat = 'obsidian' } = args || {};
+  const { outputDir = OUTPUT_DIR, assetsDir = ASSETS_DIR, imageFormat = 'obsidian' } = args || {};
 
   try {
     console.log('正在获取最新笔记...');
-    const result = await getLatestNoteAsMarkdown({ outputDir, imageFormat });
+    const result = await getLatestNoteAsMarkdown({ outputDir, assetsDir, imageFormat });
 
     return {
       content: [
@@ -190,13 +192,14 @@ Markdown 文件: ${result.mdPath}
 
 export async function handleGetLatestOriginalNote(args: {
   outputDir?: string;
+  assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
 }) {
-  const { outputDir = DEFAULT_OUTPUT_DIR, imageFormat = 'obsidian' } = args || {};
+  const { outputDir = OUTPUT_DIR, assetsDir = ASSETS_DIR, imageFormat = 'obsidian' } = args || {};
 
   try {
     console.log('正在获取最新原文笔记...');
-    const result = await getLatestOriginalNoteAsMarkdown({ outputDir, imageFormat });
+    const result = await getLatestOriginalNoteAsMarkdown({ outputDir, assetsDir, imageFormat });
 
     return {
       content: [

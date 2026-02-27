@@ -4,7 +4,7 @@ import { withLoggedInPage } from '@asd345gh/mcpkit/browser';
 import { saveToCache, loadFromCacheWithTtl } from '@asd345gh/mcpkit/utils';
 import { convertToMarkdown } from './convert_to_md.js';
 import type { BijiNoteDetail, BijiApiResponse } from '../types/note.js';
-import { CACHE_TTL_NOTE_DETAIL } from '../config/index.js';
+import { CACHE_TTL_NOTE_DETAIL, ASSETS_DIR } from '../config/index.js';
 
 const CACHE_OPTIONS = { appName: 'biji-cli' };
 
@@ -101,6 +101,7 @@ async function getNoteDetailByApi(page: Page, noteId: string, isOriginal: boolea
 export interface SaveMarkdownOptions {
   noteId: string;
   outputDir: string;
+  assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
   isOriginal?: boolean; // 是否为原文笔记
 }
@@ -111,7 +112,7 @@ export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<
   imageCount: number;
   downloadedCount: number;
 }> {
-  const { noteId, outputDir, imageFormat = 'obsidian', isOriginal = false } = options;
+  const { noteId, outputDir, assetsDir = ASSETS_DIR, imageFormat = 'obsidian', isOriginal = false } = options;
 
   // 从远程获取数据
   const apiData = await withLoggedInPage(
@@ -133,6 +134,7 @@ export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<
   // 转换为 Markdown
   const result = await convertToMarkdown(apiData, {
     outputDir,
+    assetsDir,
     imageFormat,
   });
 

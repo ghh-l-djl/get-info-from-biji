@@ -81,12 +81,14 @@ export async function getLatestNoteId(): Promise<string> {
  */
 export async function getLatestNoteAsMarkdown(options: {
   outputDir: string;
+  assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
 }) {
   const noteId = await getLatestNoteId();
   return await saveNoteAsMarkdown({
     noteId,
     outputDir: options.outputDir,
+    assetsDir: options.assetsDir,
     imageFormat: options.imageFormat,
   });
 }
@@ -96,12 +98,14 @@ export async function getLatestNoteAsMarkdown(options: {
  */
 export async function getLatestOriginalNoteAsMarkdown(options: {
   outputDir: string;
+  assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
 }) {
   const noteId = await getLatestNoteId();
   return await saveNoteAsMarkdown({
     noteId,
     outputDir: options.outputDir,
+    assetsDir: options.assetsDir,
     imageFormat: options.imageFormat,
     isOriginal: true,
   });

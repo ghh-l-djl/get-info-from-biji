@@ -15,7 +15,7 @@ Get笔记 CLI 工具和 MCP 服务器 - 一键获取笔记内容并保存为 Mar
 ## 安装
 
 ```bash
-cd /Users/ghh/Documents/编程/项目/get-info-from-biji
+cd /Users/xx/Documents/编程/项目/get-info-from-biji
 npm install
 npm run build
 ```
@@ -193,10 +193,47 @@ npm run biji get-latest ~/Documents/MyNotes
 - `@asd345gh/mcpkit/mcp` - MCP 服务器创建工具
 - `@asd345gh/mcpkit/utils` - 缓存等实用工具
 
-## 默认配置
+## 配置
 
-| 配置项 | 值 |
-|--------|-----|
-| **输出目录** | `/Users/ghh/Documents/A第二大脑` |
-| **Assets 目录** | `/Users/ghh/Documents/A第二大脑/Assets` |
+输出目录和图片目录支持三种配置方式，优先级从高到低：
+
+### 方式 1: 环境变量（优先级最高）
+
+```bash
+export BIJI_OUTPUT_DIR="/path/to/output"
+export BIJI_ASSETS_DIR="/path/to/assets"
+```
+
+### 方式 2: 项目目录配置文件
+
+在项目目录下创建 `.bijirc.json`：
+
+```json
+{
+  "outputDir": "/Users/xx/Documents/A第二大脑",
+  "assetsDir": "/Users/xx/Documents/A第二大脑/Assets"
+}
+```
+
+### 方式 3: 用户主目录配置文件
+
+在用户主目录下创建 `.bijirc.json`：
+
+```json
+{
+  "outputDir": "/Users/xx/Documents/A第二大脑",
+  "assetsDir": "/Users/xx/Documents/A第二大脑/Assets"
+}
+```
+
+### 默认配置
+
+如果未配置，使用以下默认值：
+
+| 配置项 | 默认值 |
+|--------|--------|
+| **输出目录** | `~/Documents/A第二大脑` |
+| **Assets 目录** | `{输出目录}/Assets` |
 | **图片格式** | Obsidian (`![[]]`) |
+
+注意修改配置文件后，需要重启 Claude。
