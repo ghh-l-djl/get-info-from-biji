@@ -9,7 +9,8 @@
     "biji": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "scripts": {
     "build": "tsc",
@@ -28,6 +29,14 @@
   ],
   "author": "Joo <1546635571@qq.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ghh-l-djl/get-info-from-biji.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ghh-l-djl/get-info-from-biji/issues"
+  },
+  "homepage": "https://github.com/ghh-l-djl/get-info-from-biji#readme",
   "engines": {
     "node": ">=18.0.0"
   },
