@@ -271,6 +271,23 @@ biji install-skill --force
 - URL: `https://www.biji.com/note/{noteId}/web`
 - 用户保存的原文内容
 
+### ⚠️ 新版"我的笔记"页面链接暂不支持
+
+新版网页"我的笔记"详情页的地址形如：
+
+```
+https://www.biji.com/mine/notes/{primeId}
+```
+
+`biji get-note` **暂不支持**直接解析这种链接。请改用笔记 ID（纯数字，16 位以上）或旧版链接格式：
+
+```bash
+biji get-note {noteId}
+biji get-note https://www.biji.com/note/{noteId}
+```
+
+旧版链接目前仍然有效。
+
 ---
 
 ## 🔍 工作原理
@@ -367,6 +384,9 @@ biji install-skill --force
 
 ### Q: 如何更新 Skill？
 **A:** 运行 `biji install-skill --force` 强制重新安装。
+
+### Q: 为什么 `https://www.biji.com/mine/notes/xxx` 这种链接获取失败？
+**A:** 这是新版"我的笔记"页面的链接格式，`biji get-note` 暂不支持解析。请改用笔记 ID 或旧版 `https://www.biji.com/note/{noteId}` 链接，详见[笔记类型说明](#-笔记类型说明)。
 
 ---
 
