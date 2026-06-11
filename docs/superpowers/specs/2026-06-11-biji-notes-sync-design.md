@@ -18,10 +18,11 @@ Two issues block naive automation (cron + `get-latest`):
 | Where it runs | A spare/idle Mac — always-on, occasionally accessible for manual re-login |
 | Sync frequency | Hourly |
 | Note type fetched | 原文 (original) only, via existing `isOriginal: true` path |
-| Multi-note handling | New `getNewNotes(sinceTimestamp)`, filters the existing 10-item notes-list by `created_at` |
+| Multi-note handling | New `getNewNotes(sinceTimestamp)`, filters the notes-list by `created_at`, paginating via "load more" if `has_more` and still above `sinceTimestamp` |
+| Sync target folder | `<syncRepoPath>/inbox/` (notes + `inbox/Assets/` images) — a triage area, separate from manually-organized vault content |
 | Relay mechanism | The idle Mac holds its own git clone of the same `obsidian-vault` GitHub repo; `biji sync` commits/pushes to it |
 | State tracking | `.biji-sync-state.json` (high-water mark + last status), committed only when it changes |
-| Failure visibility | `_biji-sync-status.md` in the vault (primary, surfaces via Obsidian Git pull) + local log + best-effort macOS notification on status transitions (secondary) |
+| Failure visibility | `_biji-sync-status.md` in the vault (primary, surfaces via Obsidian Git pull) + local log + email via SMTP on status transitions (secondary) |
 | Encryption | None (declined) |
 | Scheduling mechanism | launchd LaunchAgent, hourly |
 
@@ -34,7 +35,7 @@ biji.com
 biji sync   (new CLI command, src/core/sync_notes.ts)
   │  1. git pull --rebase   (idle Mac's clone)
   │  2. getNewNotes(lastSyncedAt)
-  │  3. saveNoteAsMarkdown({ noteId, isOriginal: true, outputDir: syncRepoPath, ... }) per new note
+  │  3. saveNoteAsMarkdown({ noteId, isOriginal: true, outputDir: <syncRepoPath>/inbox, ... }) per new note
   │  4. update .biji-sync-state.json + _biji-sync-status.md (only if changed)
   │  5. git commit + push (rebase-retry once on rejection)
   ▼
@@ -52,12 +53,18 @@ The idle Mac's clone is independent of the primary Mac's vault clone — there i
 ### 4.1 `getNewNotes(sinceTimestamp: string): Promise<NoteListItem[]>`
 
 - Location: `src/core/get_new_notes.ts` (sibling to `get_latest_note.ts`)
-- Reuses the existing notes-list interception (`/voicenotes/web/notes?sort=create_desc`)
+- Reuses the existing notes-list interception (`/voicenotes/web/notes?sort=create_desc`, actual host `get-notes.luojilab.com`)
 - Returns items from `data.c.list` where `created_at > sinceTimestamp`, sorted **oldest first**
 - `created_at` is in the format `"YYYY-MM-DD HH:MM:SS"`, which sorts correctly with plain string comparison — no date parsing needed
 - Each item's id is `note.note_id || note.id`, matching the existing `getLatestNoteId()` convention
 
-**Known limitation**: the API returns at most 10 items. If more than 10 notes are created within a single sync interval, only the 10 most recent are visible — older ones in that batch are permanently missed. Acceptable for hourly personal-use cadence; not solved by this design.
+**Pagination (>10 new notes per interval)**: verified during design research that the response includes `total_items`, `has_more`, and the request includes `limit`/`since_id` params — the default page of 10 is not a hard cap; the account has hundreds of notes total and the API supports paging through them. So ">10 new notes in one interval" is **not a fundamental limitation** and must not silently drop notes.
+
+`getNewNotes` loops: after the initial intercepted page, while `has_more === true` AND the oldest item accumulated so far has `created_at > sinceTimestamp`, trigger the page's own "load more" (infinite scroll) and intercept the next paginated response, accumulating items. Stop when either `has_more === false` or the oldest accumulated item's `created_at <= sinceTimestamp`.
+
+**Implementation-time investigation**: confirm the concrete scroll/UI trigger that causes `https://www.biji.com/note` to issue the next paginated request (a first attempt during this design's research did not trigger one — needs a working selector/wait strategy). This is a scoped, verifiable first step of implementation, not a design blocker. Calling the `get-notes.luojilab.com` API directly from outside the page context hit CORS ("Failed to fetch") and is not a viable shortcut — pagination must go through the page itself, same as the existing interception pattern.
+
+In practice, exceeding 10 new notes within one sync interval should be rare for personal voice-note usage — but with this loop, the mechanism is *correct* (paginate until caught up) rather than *silently lossy*.
 
 ### 4.2 `biji sync` CLI command
 
@@ -68,11 +75,11 @@ The idle Mac's clone is independent of the primary Mac's vault clone — there i
 **Each run**:
 
 1. `git -C <syncRepoPath> pull --rebase`
-   - On failure: append to local log, send macOS notification, exit non-zero. (Nothing else has run yet, so no state to update.)
+   - On failure: append to local log, send a failure email, exit non-zero. (Nothing else has run yet, so no state to update.)
 2. Read `.biji-sync-state.json` → `{ lastSyncedAt, lastStatus, lastErrorMessage }`
 3. Attempt the sync:
    - `notes = getNewNotes(lastSyncedAt)`
-   - For each note, oldest-first: `saveNoteAsMarkdown({ noteId, outputDir: syncRepoPath, assetsDir: <syncRepoPath>/Assets, imageFormat: 'obsidian', isOriginal: true })`
+   - For each note, oldest-first: `saveNoteAsMarkdown({ noteId, outputDir: <syncRepoPath>/inbox, assetsDir: <syncRepoPath>/inbox/Assets, imageFormat: 'obsidian', isOriginal: true })`
    - On success: `newStatus = "ok"`, `newErrorMessage = null`, `newLastSyncedAt = notes.length ? max(created_at of notes) : lastSyncedAt`
    - On any error (e.g. `withLoggedInPage` throwing "未登录..."): `newStatus = "error"`, `newErrorMessage = err.message`, `newLastSyncedAt = lastSyncedAt` (unchanged)
 4. Compute `stateChanged = (newLastSyncedAt !== lastSyncedAt) || (newStatus !== lastStatus) || (newErrorMessage !== lastErrorMessage)`
@@ -83,17 +90,17 @@ The idle Mac's clone is independent of the primary Mac's vault clone — there i
    - `git commit -m "biji sync: <n> new note(s)"` (or `"biji sync: status update"` if `n === 0`)
    - `git push`
      - On non-fast-forward rejection: `git pull --rebase` once, retry push
-     - On repeated failure: `git rebase --abort`, append to local log, send macOS notification, exit non-zero. The commit remains local and will be retried on the next scheduled run.
+     - On repeated failure: `git rebase --abort`, append to local log, send a failure email, exit non-zero. The commit remains local and will be retried on the next scheduled run.
    - Else (`!stateChanged`): no git write operations — working tree is clean, nothing to commit
 6. Append a line to `~/.biji-cli/sync.log` every run (timestamp, result, notes-synced count, error if any) regardless of `stateChanged` — this is the local heartbeat/debug trail
-7. If `newStatus !== lastStatus` (a transition: ok→error or error→ok), send a best-effort macOS notification. Routine successful syncs (even with new notes) and repeated identical error states do not notify, to avoid hourly spam while a known issue is unresolved.
+7. If `newStatus !== lastStatus` (a transition: ok→error or error→ok), send a failure/recovery email (see 4.6). Routine successful syncs (even with new notes) and repeated identical error states do not send email, to avoid hourly spam while a known issue is unresolved.
 
 ### 4.3 Config additions (`~/.bijirc.json` on the idle Mac)
 
 - `syncRepoUrl` — git remote URL for the vault repo (e.g. `git@github.com:ghh-l-djl/obsidian-vault.git`). No default; `biji sync` errors with setup instructions if unset.
 - `syncRepoPath` — local clone path, default `~/.biji-cli/vault-sync`.
 
-`biji sync` writes into `syncRepoPath` (and `syncRepoPath/Assets`), independent of the existing `outputDir`/`assetsDir` config used by `get-note`/`get-latest`/`get-latest-original`. This keeps the sync target explicit and decoupled from any ad-hoc fetch configuration on the same machine.
+`biji sync` writes notes into `<syncRepoPath>/inbox/` and images into `<syncRepoPath>/inbox/Assets/`, independent of the existing `outputDir`/`assetsDir` config used by `get-note`/`get-latest`/`get-latest-original`. The `inbox/` folder gives the user an explicit triage location in Obsidian for newly-synced notes, separate from notes they've manually organized elsewhere in the vault, and decoupled from any ad-hoc fetch configuration on the same machine.
 
 ### 4.4 State file: `.biji-sync-state.json`
 
@@ -131,15 +138,24 @@ Error example:
 
 This file only updates in git history when something meaningful happens (new notes synced, or a status transition) — not on every hourly run — to keep the vault's commit history readable.
 
+### 4.6 Email failure notifications
+
+- New dependency: `nodemailer` — small, pure-JS, sending an email is ~10 lines of code; not a heavy addition.
+- New config, idle-Mac-local `~/.bijirc.json` only (NOT part of the synced repo, so it never reaches GitHub):
+  - `notifyEmail` — recipient address
+  - `smtp: { host, port, secure, user, pass, from }` — credentials for sending
+- Sent only on: ok↔error transitions (4.2 step 7) and git pull/push failures (4.2 steps 1 and 5) — same trigger conditions originally specified for the macOS-notification approach.
+- **Credential storage note**: the SMTP password/API key sits in plaintext in `~/.bijirc.json` on the idle Mac — the same risk class as the disk-encryption question the user already decided not to pursue for the vault. Recommend a dedicated low-privilege credential (e.g. a Gmail "App Password" on a separate account, or a send-only transactional-email API key), so a leak only allows sending mail as that address rather than broader account access. This is a setup-time choice, not a code-level mitigation.
+
 ## 5. Failure Handling & Visibility
 
 Two layers, since the idle Mac isn't actively watched:
 
 1. **Status note** (`_biji-sync-status.md`, primary): committed/pushed on state changes (new notes or status transitions), propagates to the primary Mac's vault via the existing Obsidian Git plugin auto-pull — visible like any other note.
    - Exception: if the failure is a **git pull/push failure itself**, the status note can't reach GitHub. Covered only by layer 2.
-2. **Local log + macOS notification** (`~/.biji-cli/sync.log`, secondary/best-effort): every run appends a line; notifications fire only on ok↔error transitions (see 4.2 step 7) and on git pull/push failures. Useful for the rare occasions the user is physically at the idle Mac, and gives a debugging trail.
+2. **Local log + email** (`~/.biji-cli/sync.log` + SMTP via `nodemailer`, secondary/best-effort — see 4.6): every run appends a line to the log; an email is sent only on ok↔error transitions and on git pull/push failures. Reaches the user wherever they check email, without needing physical or remote access to the idle Mac; the log gives a local debugging trail.
 
-**Login expiry** (most likely failure mode — biji.com sessions expire periodically): `getNewNotes`/`saveNoteAsMarkdown` throw "未登录..." via `withLoggedInPage`. This is a pre-git-operation failure, so the status note update IS committed/pushed normally (layer 1), plus log + notification (layer 2). Recovery: user sees the status note in Obsidian or the notification, accesses the idle Mac, runs `biji login` there (interactive, phone verification — cannot be automated).
+**Login expiry** (most likely failure mode — biji.com sessions expire periodically): `getNewNotes`/`saveNoteAsMarkdown` throw "未登录..." via `withLoggedInPage`. This is a pre-git-operation failure, so the status note update IS committed/pushed normally (layer 1), plus log + email (layer 2). Recovery: user sees the status note in Obsidian or the email, accesses the idle Mac, runs `biji login` there (interactive, phone verification — cannot be automated).
 
 ## 6. Scheduling
 
@@ -147,13 +163,16 @@ Two layers, since the idle Mac isn't actively watched:
 - **Schedule**: hourly via `StartCalendarInterval` with `Minute: 0`
 - **Command**: a wrapper script (e.g. `~/.biji-cli/run-sync.sh`) sets `PATH` (so `git`/`node`/`biji` resolve under launchd's minimal environment) and runs `biji sync`, with stdout/stderr redirected to `~/.biji-cli/sync.log`
 - LaunchAgents only run while a user session is active — the idle Mac must remain logged into the user's account (e.g. auto-login enabled) for the schedule to fire. To be verified during setup.
+- **Interval choice**: a 30-minute interval was considered as a workaround for the >10-new-notes case, but `getNewNotes`'s pagination loop (4.1) now handles that regardless of interval — so interval choice only affects sync latency, not data loss. Hourly is kept. Halving to 30 minutes would roughly double headless-Chrome launches/API calls per day (24 → 48); for an otherwise-idle Mac that's a negligible resource cost, and at this volume it's unlikely to be a meaningful anti-bot signal (the dominant fingerprinting factor is running headless Chrome at all, which is unchanged either way). Switch to 30 minutes only if fresher sync is independently desired.
 
 ## 7. Testing Approach
 
 No existing test framework in this project; testing is manual/ad-hoc, consistent with existing code.
 
-- `getNewNotes(sinceTimestamp)`: pure filtering/sorting logic over a list — can be exercised with a hardcoded sample list (similar to the throwaway inspection script used during this design's research) before wiring it into `sync_notes.ts`.
-- `biji sync` end-to-end: dry-run against a scratch git repo/clone (not the real vault) first — verify state file creation, status note content, commit behavior (including the "no commit when nothing changed" path), and the rebase-retry-on-push-rejection path (simulate by pushing from a second clone between pull and push).
+- `getNewNotes(sinceTimestamp)` filtering/sorting logic: pure logic over a list — exercise with a hardcoded sample list (similar to the throwaway inspection scripts used during this design's research) before wiring it into `sync_notes.ts`.
+- `getNewNotes` pagination loop: first confirm the scroll/UI trigger that yields a second page (4.1), then verify the loop correctly stops at `has_more === false` or once `created_at <= sinceTimestamp`.
+- `biji sync` end-to-end: dry-run against a scratch git repo/clone (not the real vault) first — verify state file creation, status note content, `inbox/` placement of notes/assets, commit behavior (including the "no commit when nothing changed" path), and the rebase-retry-on-push-rejection path (simulate by pushing from a second clone between pull and push).
+- Email notifications (4.6): verify with a throwaway SMTP credential/recipient before wiring real ones in.
 - Only after local end-to-end verification, point `syncRepoUrl`/`syncRepoPath` at the real vault repo and deploy the launchd job on the idle Mac.
 
 ## 8. Out of Scope
@@ -161,5 +180,4 @@ No existing test framework in this project; testing is manual/ad-hoc, consistent
 - **Obsidian Git plugin auto-pull configuration** on the primary Mac — already installed; just confirm an auto-pull interval is configured. No code changes here.
 - **Encrypted Disk Image** for the sync folder on the idle Mac — explicitly declined by the user.
 - **Automating biji.com login** — not possible (interactive phone verification), unchanged.
-- **Backfilling >10 notes in a single interval** — documented limitation (4.1), not solved.
 - **Migrating to a remote server** in the future — independent of this design; the idle-Mac deployment uses the same general shape (its own clone, its own config) that any future host would also use.
