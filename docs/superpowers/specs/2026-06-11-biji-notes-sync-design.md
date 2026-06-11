@@ -19,7 +19,7 @@ Two issues block naive automation (cron + `get-latest`):
 | Sync frequency | Hourly |
 | Note type fetched | 原文 (original) only, via existing `isOriginal: true` path |
 | Multi-note handling | New `getNewNotes(sinceTimestamp)`, filters the notes-list by `created_at`, paginating via "load more" if `has_more` and still above `sinceTimestamp` |
-| Sync target folder | `<syncRepoPath>/inbox/` (notes + `inbox/Assets/` images) — a triage area, separate from manually-organized vault content |
+| Sync target folder | Notes → `<syncRepoPath>/inbox/` (triage area); images → `<syncRepoPath>/Assets/` (shared with rest of vault) |
 | Relay mechanism | The idle Mac holds its own git clone of the same `obsidian-vault` GitHub repo; `biji sync` commits/pushes to it |
 | State tracking | `.biji-sync-state.json` (high-water mark + last status), committed only when it changes |
 | Failure visibility | `_biji-sync-status.md` in the vault (primary, surfaces via Obsidian Git pull) + local log + email via SMTP on status transitions (secondary) |
@@ -58,11 +58,19 @@ The idle Mac's clone is independent of the primary Mac's vault clone — there i
 - `created_at` is in the format `"YYYY-MM-DD HH:MM:SS"`, which sorts correctly with plain string comparison — no date parsing needed
 - Each item's id is `note.note_id || note.id`, matching the existing `getLatestNoteId()` convention
 
-**Pagination (>10 new notes per interval)**: verified during design research that the response includes `total_items`, `has_more`, and the request includes `limit`/`since_id` params — the default page of 10 is not a hard cap; the account has hundreds of notes total and the API supports paging through them. So ">10 new notes in one interval" is **not a fundamental limitation** and must not silently drop notes.
+**Pagination (>10 new notes per interval)**: verified during design research that the response includes `total_items` and `has_more`, and the request URL includes `limit`/`since_id` — so the default page of 10 is not the full note history; the API supports paging. Calling the API directly with a different `limit` from outside the page hit CORS ("Failed to fetch"), so `getNewNotes` does **not** try to control `limit` itself — it relies entirely on the page's own "load more" (infinite scroll) for subsequent pages, using whatever params the page itself sends.
 
-`getNewNotes` loops: after the initial intercepted page, while `has_more === true` AND the oldest item accumulated so far has `created_at > sinceTimestamp`, trigger the page's own "load more" (infinite scroll) and intercept the next paginated response, accumulating items. Stop when either `has_more === false` or the oldest accumulated item's `created_at <= sinceTimestamp`.
+`getNewNotes` loops over pages (each page sorted `create_desc`, items accumulated oldest-first overall):
+1. Take the initial intercepted page (10 items).
+2. If the **oldest item accumulated so far** has `created_at > sinceTimestamp` AND `has_more === true`, trigger "load more" and intercept the next page; append its items.
+3. Repeat step 2 until either the oldest accumulated item's `created_at <= sinceTimestamp`, or `has_more === false`.
+4. Return all accumulated items where `created_at > sinceTimestamp`, oldest-first.
 
-**Implementation-time investigation**: confirm the concrete scroll/UI trigger that causes `https://www.biji.com/note` to issue the next paginated request (a first attempt during this design's research did not trigger one — needs a working selector/wait strategy). This is a scoped, verifiable first step of implementation, not a design blocker. Calling the `get-notes.luojilab.com` API directly from outside the page context hit CORS ("Failed to fetch") and is not a viable shortcut — pagination must go through the page itself, same as the existing interception pattern.
+**Robust to deleted notes**: the stop condition is a **timestamp threshold** (`created_at <= sinceTimestamp`), not "find the specific note we synced last time". `sinceTimestamp` is just a cutoff value — it doesn't need to correspond to a note that still exists. If the user deletes the note that originally had that `created_at`, the comparison is unaffected: the next page's oldest item still has *some* `created_at`, and as soon as that's `<= sinceTimestamp` the loop stops normally. Pagination only runs long (toward `total_items` pages) in the unlikely case that *every* note older than `sinceTimestamp` has been deleted — and even then it's bounded by `total_items`, not infinite.
+
+(Minor edge case, not handled: if two notes share the exact same `created_at` to the second and the cutoff falls between them, a same-second note could theoretically be missed. Considered negligible for hand-created voice notes.)
+
+**Implementation-time investigation**: confirm the concrete scroll/UI trigger that causes `https://www.biji.com/note` to issue the next paginated request (a first attempt during this design's research did not trigger one). Puppeteer can drive scrolling (`page.evaluate(() => el.scrollTo(...))`, `page.mouse.wheel(...)`) — likely needs a larger viewport, scrolling the correct inner list container (not just `document.body`), and waiting long enough for an IntersectionObserver-driven fetch to fire. This is a scoped, verifiable first step of implementation, not a design blocker.
 
 In practice, exceeding 10 new notes within one sync interval should be rare for personal voice-note usage — but with this loop, the mechanism is *correct* (paginate until caught up) rather than *silently lossy*.
 
@@ -79,7 +87,7 @@ In practice, exceeding 10 new notes within one sync interval should be rare for 
 2. Read `.biji-sync-state.json` → `{ lastSyncedAt, lastStatus, lastErrorMessage }`
 3. Attempt the sync:
    - `notes = getNewNotes(lastSyncedAt)`
-   - For each note, oldest-first: `saveNoteAsMarkdown({ noteId, outputDir: <syncRepoPath>/inbox, assetsDir: <syncRepoPath>/inbox/Assets, imageFormat: 'obsidian', isOriginal: true })`
+   - For each note, oldest-first: `saveNoteAsMarkdown({ noteId, outputDir: <syncRepoPath>/inbox, assetsDir: <syncRepoPath>/Assets, imageFormat: 'obsidian', isOriginal: true })`
    - On success: `newStatus = "ok"`, `newErrorMessage = null`, `newLastSyncedAt = notes.length ? max(created_at of notes) : lastSyncedAt`
    - On any error (e.g. `withLoggedInPage` throwing "未登录..."): `newStatus = "error"`, `newErrorMessage = err.message`, `newLastSyncedAt = lastSyncedAt` (unchanged)
 4. Compute `stateChanged = (newLastSyncedAt !== lastSyncedAt) || (newStatus !== lastStatus) || (newErrorMessage !== lastErrorMessage)`
@@ -100,7 +108,7 @@ In practice, exceeding 10 new notes within one sync interval should be rare for 
 - `syncRepoUrl` — git remote URL for the vault repo (e.g. `git@github.com:ghh-l-djl/obsidian-vault.git`). No default; `biji sync` errors with setup instructions if unset.
 - `syncRepoPath` — local clone path, default `~/.biji-cli/vault-sync`.
 
-`biji sync` writes notes into `<syncRepoPath>/inbox/` and images into `<syncRepoPath>/inbox/Assets/`, independent of the existing `outputDir`/`assetsDir` config used by `get-note`/`get-latest`/`get-latest-original`. The `inbox/` folder gives the user an explicit triage location in Obsidian for newly-synced notes, separate from notes they've manually organized elsewhere in the vault, and decoupled from any ad-hoc fetch configuration on the same machine.
+`biji sync` writes notes into `<syncRepoPath>/inbox/` and images into `<syncRepoPath>/Assets/` (the same shared assets folder the rest of the vault already uses, per the existing vault structure), independent of the existing `outputDir`/`assetsDir` config used by `get-note`/`get-latest`/`get-latest-original`. The `inbox/` folder gives the user an explicit triage location in Obsidian for newly-synced note text, while images join the vault's single shared `Assets/` folder — avoiding a separate, redundant assets tree and keeping image references valid if/when notes are later moved out of `inbox/`.
 
 ### 4.4 State file: `.biji-sync-state.json`
 
