@@ -5,6 +5,11 @@ import { withLoggedInPage } from '@asd345gh/mcpkit/browser';
 import { needsMorePages, selectNewNotes } from './notes_list.js';
 import type { NoteListItem } from '../types/sync.js';
 
+// Defense-in-depth cap for the pagination loop: in practice the loop is
+// bounded by account size, but never let a pathological server response
+// (endless has_more=true) occupy the whole hourly daemon window.
+const MAX_PAGES = 200;
+
 async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
   const start = Date.now();
   while (!predicate() && Date.now() - start < timeoutMs) {
@@ -72,8 +77,9 @@ export async function getNewNotes(sinceTimestamp: string): Promise<NoteListItem[
             console.log(`📄 拦截到笔记列表第 ${pageCount} 页，累计 ${accumulated.length} 条，has_more=${hasMore}`);
           }
         } catch (e: any) {
-          if (!e.message.includes('Could not load response body')) {
-            console.error('解析笔记列表响应失败:', e.message);
+          const msg = e?.message ?? String(e);
+          if (!msg.includes('Could not load response body')) {
+            console.error('解析笔记列表响应失败:', msg);
           }
         }
       };
@@ -89,7 +95,7 @@ export async function getNewNotes(sinceTimestamp: string): Promise<NoteListItem[
           throw new Error('未能获取到笔记列表，请确保已登录');
         }
 
-        while (needsMorePages(accumulated, sinceTimestamp, hasMore)) {
+        while (pageCount < MAX_PAGES && needsMorePages(accumulated, sinceTimestamp, hasMore)) {
           pageResolved = false;
           await triggerLoadMore(page);
           await waitFor(() => pageResolved, 15000);
