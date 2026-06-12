@@ -57,6 +57,20 @@ describe('computeNextState', () => {
     const { changed } = computeNextState(errorState, result, '2026-06-11 12:00:00');
     expect(changed).toBe(false);
   });
+
+  it('marks changed on error -> ok recovery even with no new notes', () => {
+    const errorState: SyncState = {
+      lastSyncedAt: '2026-06-11 09:00:00',
+      lastStatus: 'error',
+      lastErrorMessage: 'boom',
+      lastChangedAt: '2026-06-11 11:00:00',
+    };
+    const result: SyncRunResult = { status: 'ok', errorMessage: null, syncedNotes: [] };
+    const { state, changed } = computeNextState(errorState, result, '2026-06-11 12:00:00');
+    expect(changed).toBe(true);
+    expect(state.lastStatus).toBe('ok');
+    expect(state.lastErrorMessage).toBeNull();
+  });
 });
 
 describe('renderStatusMarkdown', () => {
