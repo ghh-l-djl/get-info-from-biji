@@ -371,8 +371,19 @@ biji install-skill --force
 
 `biji sync` 在一台常驻、闲置的 Mac 上运行，定期把新的 biji 笔记同步到一个
 独立的 Obsidian vault git 仓库（通过 GitHub 中转，主 Mac 上的 Obsidian Git
-插件再自动拉取）。详见设计文档：
-`docs/superpowers/specs/2026-06-11-biji-notes-sync-design.md`。
+插件再自动拉取）。完整的运行流程、配置项、状态文件格式和已知限制详见：
+[`docs/biji-sync.md`](docs/biji-sync.md)。
+
+### 运行结果
+![运行过程1](./screenshot/sync:get->host.png)
+![运行过程2](./screenshot/sync:host->github.png)
+
+#### 单篇文章导入
+![运行过程3](./screenshot/sync:github->obsidian.png)
+![运行结果](./screenshot/sync-result.png)
+
+#### 多篇文章一次性导入
+
 
 ### 配置
 
@@ -395,7 +406,7 @@ biji sync
 
 首次运行会克隆 `syncRepoPath`（如不存在）、初始化
 `.biji-sync-state.json` / `_biji-sync-status.md` 并提交推送，但**不会**拉取
-任何历史笔记 —— 只有此后新建的笔记才会被同步。
+任何get笔记的历史笔记 —— 只有此后新建的笔记才会被同步。
 
 ### 同步内容
 
@@ -418,8 +429,8 @@ sed "s/<USERNAME>/$(whoami)/g" scripts/launchd/com.bijicli.sync.plist > ~/Librar
 launchctl load ~/Library/LaunchAgents/com.bijicli.sync.plist
 ```
 
-每小时整点运行一次。日志和邮件通知详见
-`docs/superpowers/specs/2026-06-11-biji-notes-sync-design.md` 第 5、6 节。
+每小时整点运行一次。日志和邮件通知规则详见
+[`docs/biji-sync.md`](docs/biji-sync.md) 第 6 节。
 
 ---
 
