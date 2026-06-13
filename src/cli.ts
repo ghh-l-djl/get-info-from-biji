@@ -7,8 +7,9 @@ import { saveNoteAsMarkdown } from './core/get_note_detail.js';
 import { getLatestNoteAsMarkdown, getLatestOriginalNoteAsMarkdown } from './core/get_latest_note.js';
 import { showConfig, setConfig, configWizard } from './core/config.js';
 import { installSkill, checkSkillInstalled } from './core/install_skill.js';
+import { runSync } from './core/sync_notes.js';
 import { parseNoteIdFromUrl, isOriginalNoteUrl } from './utils/url.js';
-import { OUTPUT_DIR, ASSETS_DIR } from './config/index.js';
+import { OUTPUT_DIR, ASSETS_DIR, SYNC_REPO_URL, SYNC_REPO_PATH, NOTIFY_EMAIL, SMTP_CONFIG } from './config/index.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -30,9 +31,12 @@ async function main() {
       if (subCommand === 'show' || !subCommand) {
         showConfig();
       } else if (subCommand === 'set') {
-        // biji config set --output-dir xxx --assets-dir yyy
+        // biji config set --output-dir xxx --assets-dir yyy --sync-repo-url zzz
         let outputDir: string | undefined;
         let assetsDir: string | undefined;
+        let syncRepoUrl: string | undefined;
+        let syncRepoPath: string | undefined;
+        let notifyEmail: string | undefined;
 
         for (let i = 2; i < args.length; i++) {
           if (args[i] === '--output-dir' && args[i + 1]) {
@@ -41,16 +45,25 @@ async function main() {
           } else if (args[i] === '--assets-dir' && args[i + 1]) {
             assetsDir = args[i + 1];
             i++;
+          } else if (args[i] === '--sync-repo-url' && args[i + 1]) {
+            syncRepoUrl = args[i + 1];
+            i++;
+          } else if (args[i] === '--sync-repo-path' && args[i + 1]) {
+            syncRepoPath = args[i + 1];
+            i++;
+          } else if (args[i] === '--notify-email' && args[i + 1]) {
+            notifyEmail = args[i + 1];
+            i++;
           }
         }
 
-        if (!outputDir && !assetsDir) {
+        if (!outputDir && !assetsDir && !syncRepoUrl && !syncRepoPath && !notifyEmail) {
           console.error('请提供要设置的配置项');
-          console.log('用法: biji config set --output-dir <path> --assets-dir <path>');
+          console.log('用法: biji config set --output-dir <path> --assets-dir <path> --sync-repo-url <url> --sync-repo-path <path> --notify-email <email>');
           process.exit(1);
         }
 
-        await setConfig({ outputDir, assetsDir });
+        await setConfig({ outputDir, assetsDir, syncRepoUrl, syncRepoPath, notifyEmail });
       } else if (subCommand === 'wizard' || subCommand === 'init') {
         await configWizard();
       } else {
@@ -139,6 +152,23 @@ async function main() {
       break;
     }
 
+    case 'sync': {
+      if (!SYNC_REPO_URL) {
+        console.error('请先配置同步仓库地址 (syncRepoUrl)');
+        console.log('用法: biji config set --sync-repo-url <git 仓库地址>');
+        console.log('示例: biji config set --sync-repo-url git@github.com:yourname/obsidian-vault.git');
+        process.exit(1);
+      }
+
+      await runSync({
+        syncRepoUrl: SYNC_REPO_URL,
+        syncRepoPath: SYNC_REPO_PATH,
+        notifyEmail: NOTIFY_EMAIL,
+        smtp: SMTP_CONFIG,
+      });
+      break;
+    }
+
     case '--help':
     case '-h':
     case 'help':
@@ -161,7 +191,11 @@ biji-cli - Get笔记 CLI 工具
   biji get-latest [outputDir]         获取最新一篇笔记并保存
   biji get-latest-original [outputDir] 获取最新一篇原文笔记并保存
 
-  biji config [show|set|wizard]      配置输出目录和图片目录
+  biji sync                           同步新笔记到 Obsidian vault 仓库（需先配置 syncRepoUrl）
+                                      笔记保存到 <syncRepoPath>/inbox/，图片保存到 <syncRepoPath>/Assets/
+                                      详见 README「同步到 Obsidian vault」一节
+
+  biji config [show|set|wizard]      配置输出目录、图片目录和同步设置
                                       show  - 显示当前配置
                                       set   - 设置配置项
                                       wizard- 交互式配置向导
@@ -186,6 +220,12 @@ biji-cli - Get笔记 CLI 工具
 
   # 设置输出目录
   biji config set --output-dir ~/Documents/MyNotes
+
+  # 配置同步仓库（用于 biji sync）
+  biji config set --sync-repo-url git@github.com:yourname/obsidian-vault.git
+
+  # 同步新笔记到 vault
+  biji sync
 
   # 使用 URL 获取笔记
   biji get-note https://www.biji.com/note/1900215167371849544
