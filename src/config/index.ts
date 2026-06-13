@@ -10,6 +10,17 @@ import { fileURLToPath } from 'url';
 interface BijiConfig {
   outputDir?: string;
   assetsDir?: string;
+  syncRepoUrl?: string;
+  syncRepoPath?: string;
+  notifyEmail?: string;
+  smtp?: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    from: string;
+  };
 }
 
 /**
@@ -111,3 +122,18 @@ export const CACHE_TTL_USER_INFO = 24 * 60 * 60; // 1天
 // API 配置
 export const BIJI_BASE_URL = 'https://get-notes.luojilab.com/voicenotes/web';
 export const BIJI_WEB_URL = 'https://www.biji.com';
+
+// ==================== 同步配置 (biji sync) ====================
+
+/** 同步仓库的 git 远程地址，例如 git@github.com:yourname/obsidian-vault.git */
+export const SYNC_REPO_URL: string | undefined = process.env.BIJI_SYNC_REPO_URL || userConfig.syncRepoUrl;
+
+/** 同步仓库的本地克隆路径，默认 ~/.biji-cli/vault-sync */
+export const SYNC_REPO_PATH: string =
+  process.env.BIJI_SYNC_REPO_PATH || userConfig.syncRepoPath || join(CACHE_DIR, 'vault-sync');
+
+/** 失败/恢复通知邮件的收件地址 */
+export const NOTIFY_EMAIL: string | undefined = process.env.BIJI_NOTIFY_EMAIL || userConfig.notifyEmail;
+
+/** SMTP 发信配置，仅在 idle Mac 本地的 ~/.bijirc.json 中设置（不进入同步仓库） */
+export const SMTP_CONFIG: BijiConfig['smtp'] | undefined = userConfig.smtp;

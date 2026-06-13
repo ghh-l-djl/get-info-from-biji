@@ -157,6 +157,7 @@ export BIJI_ASSETS_DIR="~/Documents/MyNotes/Assets"
 | `biji get-note <URL\|ID>` | 获取指定笔记（支持完整 URL 或 ID） |
 | `biji get-latest` | 获取最新一篇笔记 |
 | `biji get-latest-original` | 获取最新一篇原文笔记 |
+| `biji sync` | 同步新笔记到 Obsidian vault 仓库（见下方「同步到 Obsidian vault」） |
 
 ---
 
@@ -342,14 +343,83 @@ biji install-skill --force
 ```json
 {
   "outputDir": "~/Documents/MyNotes",
-  "assetsDir": "~/Documents/MyNotes/Assets"
+  "assetsDir": "~/Documents/MyNotes/Assets",
+  "syncRepoUrl": "git@github.com:yourname/obsidian-vault.git",
+  "syncRepoPath": "~/.biji-cli/vault-sync",
+  "notifyEmail": "you@example.com",
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 465,
+    "secure": true,
+    "user": "you@example.com",
+    "pass": "app-password",
+    "from": "you@example.com"
+  }
 }
 ```
+
+**注意**：`syncRepoUrl`/`syncRepoPath`/`notifyEmail` 可通过 `biji config set` 设置；`smtp` 字段较复杂（嵌套对象），需要直接编辑 `~/.bijirc.json`。`smtp` 仅用于 `biji sync` 的失败/恢复通知邮件，建议使用专用的低权限凭据（例如单独 Gmail 账号的「应用专用密码」），不要使用主账号密码。
 
 **注意**：
 - 配置文件修改后立即生效，无需重启
 - 使用 `biji config wizard` 可自动生成配置文件
 - 路径支持 `~` 符号表示用户主目录
+
+---
+
+## 🔁 同步到 Obsidian vault（biji sync）
+
+`biji sync` 在一台常驻、闲置的 Mac 上运行，定期把新的 biji 笔记同步到一个
+独立的 Obsidian vault git 仓库（通过 GitHub 中转，主 Mac 上的 Obsidian Git
+插件再自动拉取）。详见设计文档：
+`docs/superpowers/specs/2026-06-11-biji-notes-sync-design.md`。
+
+### 配置
+
+```bash
+biji login
+biji config set --sync-repo-url git@github.com:yourname/obsidian-vault.git
+# 可选，默认 ~/.biji-cli/vault-sync
+biji config set --sync-repo-path ~/.biji-cli/vault-sync
+# 可选，配置失败/恢复通知邮箱
+biji config set --notify-email you@example.com
+```
+
+如需邮件通知，编辑 `~/.bijirc.json`，添加 `smtp` 字段（见上方配置文件格式）。
+
+### 首次运行
+
+```bash
+biji sync
+```
+
+首次运行会克隆 `syncRepoPath`（如不存在）、初始化
+`.biji-sync-state.json` / `_biji-sync-status.md` 并提交推送，但**不会**拉取
+任何历史笔记 —— 只有此后新建的笔记才会被同步。
+
+### 同步内容
+
+- 笔记 Markdown 文件 → `<syncRepoPath>/inbox/`（待整理区）
+- 图片 → `<syncRepoPath>/Assets/`（与 vault 其余部分共用）
+- 状态文件 `.biji-sync-state.json` 和状态说明 `_biji-sync-status.md`
+
+### 定时运行（launchd）
+
+在闲置 Mac 上：
+
+```bash
+mkdir -p ~/.biji-cli
+cp scripts/launchd/run-sync.sh ~/.biji-cli/run-sync.sh
+chmod +x ~/.biji-cli/run-sync.sh
+
+# 将模板中的 <USERNAME> 替换为 `whoami` 的输出
+sed "s/<USERNAME>/$(whoami)/g" scripts/launchd/com.bijicli.sync.plist > ~/Library/LaunchAgents/com.bijicli.sync.plist
+
+launchctl load ~/Library/LaunchAgents/com.bijicli.sync.plist
+```
+
+每小时整点运行一次。日志和邮件通知详见
+`docs/superpowers/specs/2026-06-11-biji-notes-sync-design.md` 第 5、6 节。
 
 ---
 

@@ -16,7 +16,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "mcp": "node dist/mcp/index.js",
-    "biji": "tsx src/cli.ts"
+    "biji": "tsx src/cli.ts",
+    "test": "vitest run"
   },
   "keywords": [
     "mcp",
@@ -43,11 +44,14 @@
   "dependencies": {
     "@asd345gh/mcpkit": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "nodemailer": "^8.0.11",
     "puppeteer-core": "^24.29.1"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
+    "@types/nodemailer": "^8.0.1",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.6"
   }
 }

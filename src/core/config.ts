@@ -7,6 +7,17 @@ import { existsSync, writeFileSync, readFileSync } from 'fs';
 interface BijiConfig {
   outputDir?: string;
   assetsDir?: string;
+  syncRepoUrl?: string;
+  syncRepoPath?: string;
+  notifyEmail?: string;
+  smtp?: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    from: string;
+  };
 }
 
 /** 用户配置文件路径 */
@@ -25,6 +36,10 @@ export function showConfig() {
       console.log('\n自定义配置:');
       console.log(`  - 输出目录: ${config.outputDir || '未设置'}`);
       console.log(`  - Assets 目录: ${config.assetsDir || '未设置'}`);
+      console.log(`  - 同步仓库 URL: ${config.syncRepoUrl || '未设置'}`);
+      console.log(`  - 同步仓库路径: ${config.syncRepoPath || join(homedir(), '.biji-cli', 'vault-sync') + ' (默认)'}`);
+      console.log(`  - 失败通知邮箱: ${config.notifyEmail || '未设置'}`);
+      console.log(`  - SMTP 配置: ${config.smtp ? '已设置' : '未设置'}`);
     } catch (error) {
       console.log('\n⚠️  配置文件格式错误');
     }
@@ -32,6 +47,8 @@ export function showConfig() {
     console.log('\n未找到自定义配置文件，将使用默认配置:');
     console.log(`  - 输出目录: ${join(homedir(), 'Documents/A第二大脑')}`);
     console.log(`  - Assets 目录: {输出目录}/Assets`);
+    console.log(`  - 同步仓库路径: ${join(homedir(), '.biji-cli', 'vault-sync')}`);
+    console.log(`  - 同步仓库 URL / 失败通知邮箱 / SMTP: 未设置`);
   }
 }
 
@@ -41,6 +58,9 @@ export function showConfig() {
 export async function setConfig(options: {
   outputDir?: string;
   assetsDir?: string;
+  syncRepoUrl?: string;
+  syncRepoPath?: string;
+  notifyEmail?: string;
 }) {
   // 读取现有配置
   let config: BijiConfig = {};
@@ -60,6 +80,15 @@ export async function setConfig(options: {
   if (options.assetsDir) {
     config.assetsDir = options.assetsDir;
   }
+  if (options.syncRepoUrl) {
+    config.syncRepoUrl = options.syncRepoUrl;
+  }
+  if (options.syncRepoPath) {
+    config.syncRepoPath = options.syncRepoPath;
+  }
+  if (options.notifyEmail) {
+    config.notifyEmail = options.notifyEmail;
+  }
 
   // 写入配置文件
   try {
@@ -69,7 +98,13 @@ export async function setConfig(options: {
     console.log('\n当前配置:');
     console.log(`  - 输出目录: ${config.outputDir || '未设置'}`);
     console.log(`  - Assets 目录: ${config.assetsDir || '未设置'}`);
+    console.log(`  - 同步仓库 URL: ${config.syncRepoUrl || '未设置'}`);
+    console.log(`  - 同步仓库路径: ${config.syncRepoPath || '未设置（默认 ~/.biji-cli/vault-sync）'}`);
+    console.log(`  - 失败通知邮箱: ${config.notifyEmail || '未设置'}`);
     console.log('\n提示: 修改配置后无需重启，立即生效');
+    if (!config.smtp) {
+      console.log('提示: smtp 配置（SMTP 发信凭据）需要直接编辑 ~/.bijirc.json，添加 "smtp": { "host", "port", "secure", "user", "pass", "from" } 字段');
+    }
   } catch (error) {
     console.error('\n❌ 保存配置失败:', error);
     process.exit(1);
