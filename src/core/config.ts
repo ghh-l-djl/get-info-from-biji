@@ -157,6 +157,8 @@ export async function configWizard() {
 
     // 保存配置
     await setConfig({ outputDir, assetsDir });
+
+    console.log('提示: 如果 biji sync 在 launchd 定时任务中需要通过本机代理访问 GitHub，且代理端口不是默认的 7890，请在 ~/.bash_profile 中设置 export BIJI_CLASH_PORT=<端口号>（详见 docs/biji-sync.md §8.1）');
   } catch (error) {
     rl.close();
     console.error('\n❌ 配置取消:', error);
