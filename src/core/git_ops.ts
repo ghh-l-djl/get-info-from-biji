@@ -11,18 +11,53 @@ export interface GitResult {
   error?: string;
 }
 
-// 30s timeout + GIT_TERMINAL_PROMPT=0 so git fails fast instead of hanging
-// on an interactive credential/host-key prompt (this runs unattended).
-const GIT_TIMEOUT_MS = 30000;
-const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+// Five minute timeout + GIT_TERMINAL_PROMPT=0 so git has enough time to clone
+// larger private vaults while still failing instead of hanging forever.
+const DEFAULT_GIT_TIMEOUT_MS = 300_000;
 
-function run(args: string[], cwd?: string): GitResult {
+export function getGitTimeoutMs(): number {
+  const configured = Number(process.env.BIJI_GIT_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_GIT_TIMEOUT_MS;
+}
+
+interface RunOptions {
+  bypassUserGitConfig?: boolean;
+}
+
+function isHttpUrl(url: string | undefined): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
+function gitEnv(options: RunOptions = {}): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    GIT_TERMINAL_PROMPT: '0',
+    ...(options.bypassUserGitConfig ? { GIT_CONFIG_GLOBAL: '/dev/null' } : {}),
+  };
+}
+
+function getRemoteOriginUrl(repoPath: string): string | undefined {
+  try {
+    return execFileSync('git', ['config', '--get', 'remote.origin.url'], {
+      cwd: repoPath,
+      stdio: 'pipe',
+      timeout: getGitTimeoutMs(),
+      env: gitEnv(),
+    })
+      .toString()
+      .trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function run(args: string[], cwd?: string, options: RunOptions = {}): GitResult {
   try {
     execFileSync('git', args, {
       cwd,
       stdio: 'pipe',
-      timeout: GIT_TIMEOUT_MS,
-      env: GIT_ENV,
+      timeout: getGitTimeoutMs(),
+      env: gitEnv(options),
     });
     return { ok: true };
   } catch (e: any) {
@@ -30,7 +65,8 @@ function run(args: string[], cwd?: string): GitResult {
     // so check both streams for non-empty output before falling back.
     const stderr = e.stderr ? e.stderr.toString().trim() : '';
     const stdout = e.stdout ? e.stdout.toString().trim() : '';
-    const message = stderr || stdout || String(e.message);
+    const details = [stderr, stdout, e.message ? String(e.message) : ''].filter(Boolean);
+    const message = details.join('\n');
     return { ok: false, error: message };
   }
 }
@@ -41,11 +77,11 @@ export function isGitRepo(repoPath: string): boolean {
 }
 
 export function gitClone(url: string, targetPath: string): GitResult {
-  return run(['clone', url, targetPath]);
+  return run(['clone', url, targetPath], undefined, { bypassUserGitConfig: isHttpUrl(url) });
 }
 
 export function gitPullRebase(repoPath: string): GitResult {
-  return run(['pull', '--rebase'], repoPath);
+  return run(['pull', '--rebase'], repoPath, { bypassUserGitConfig: isHttpUrl(getRemoteOriginUrl(repoPath)) });
 }
 
 /**
@@ -58,8 +94,8 @@ export function gitPullRebase(repoPath: string): GitResult {
 export function gitHasChanges(repoPath: string): boolean {
   const out = execFileSync('git', ['status', '--porcelain'], {
     cwd: repoPath,
-    timeout: GIT_TIMEOUT_MS,
-    env: GIT_ENV,
+    timeout: getGitTimeoutMs(),
+    env: gitEnv(),
   }).toString();
   return out.trim().length > 0;
 }
@@ -82,7 +118,8 @@ export function gitRebaseAbort(repoPath: string): void {
  * clean and the local commit is retried on the next scheduled run.
  */
 export function gitPushWithRetry(repoPath: string): GitResult {
-  const firstPush = run(['push'], repoPath);
+  const bypassUserGitConfig = isHttpUrl(getRemoteOriginUrl(repoPath));
+  const firstPush = run(['push'], repoPath, { bypassUserGitConfig });
   if (firstPush.ok) {
     return firstPush;
   }
@@ -96,7 +133,7 @@ export function gitPushWithRetry(repoPath: string): GitResult {
     };
   }
 
-  const secondPush = run(['push'], repoPath);
+  const secondPush = run(['push'], repoPath, { bypassUserGitConfig });
   if (!secondPush.ok) {
     // Defensive only: the pull above succeeded, so no rebase should be in
     // progress here — this abort is a harmless no-op safety net. The primary
