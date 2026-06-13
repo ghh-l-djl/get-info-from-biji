@@ -102,7 +102,9 @@ export async function setConfig(options: {
     console.log(`  - 同步仓库路径: ${config.syncRepoPath || '未设置（默认 ~/.biji-cli/vault-sync）'}`);
     console.log(`  - 失败通知邮箱: ${config.notifyEmail || '未设置'}`);
     console.log('\n提示: 修改配置后无需重启，立即生效');
-    console.log('提示: smtp 配置（SMTP 发信凭据）需要直接编辑 ~/.bijirc.json，添加 "smtp": { "host", "port", "secure", "user", "pass", "from" } 字段');
+    if (!config.smtp) {
+      console.log('提示: smtp 配置（SMTP 发信凭据）需要直接编辑 ~/.bijirc.json，添加 "smtp": { "host", "port", "secure", "user", "pass", "from" } 字段');
+    }
   } catch (error) {
     console.error('\n❌ 保存配置失败:', error);
     process.exit(1);
