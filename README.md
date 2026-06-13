@@ -429,8 +429,11 @@ sed "s/<USERNAME>/$(whoami)/g" scripts/launchd/com.bijicli.sync.plist > ~/Librar
 launchctl load ~/Library/LaunchAgents/com.bijicli.sync.plist
 ```
 
-每小时整点运行一次。日志和邮件通知规则详见
-[`docs/biji-sync.md`](docs/biji-sync.md) 第 6 节。
+每小时整点运行一次。`run-sync.sh` 会自动检测本机代理（默认端口 `7890`，对应
+Clash 默认配置）并在同步时使用；如果你的代理监听其他端口，在
+`~/.bash_profile` 中添加 `export BIJI_CLASH_PORT=<端口号>`（launchd 以 login
+shell 方式运行该脚本，会读取此文件）。日志和邮件通知规则详见
+[`docs/biji-sync.md`](docs/biji-sync.md) 第 6 节，代理检测细节见该文档 §8.1。
 
 ---
 

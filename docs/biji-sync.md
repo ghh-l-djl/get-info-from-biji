@@ -283,11 +283,12 @@ Gmail，投递是 `smtp.host` 和 Gmail 服务器之间的事。
 
 ### 8.1 Clash 代理检测
 
-`run-sync.sh` 在调用 `biji sync` 前会检测本机 `127.0.0.1:7890`（Clash 默认端口）是否
-开放，若开放则导出 `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy`：
+`run-sync.sh` 在调用 `biji sync` 前会检测本机代理端口（默认 `127.0.0.1:7890`，
+Clash 默认端口）是否开放，若开放则导出 `http_proxy` / `https_proxy` /
+`all_proxy` / `no_proxy`：
 
 ```bash
-CLASH_PORT=7890
+CLASH_PORT="${BIJI_CLASH_PORT:-7890}"
 if nc -z -G 1 127.0.0.1 "$CLASH_PORT" 2>/dev/null; then
   export http_proxy="http://127.0.0.1:${CLASH_PORT}"
   export https_proxy="http://127.0.0.1:${CLASH_PORT}"
@@ -295,6 +296,12 @@ if nc -z -G 1 127.0.0.1 "$CLASH_PORT" 2>/dev/null; then
   export no_proxy="localhost,127.0.0.1,::1"
 fi
 ```
+
+这个端口需要和本机代理软件（Clash 等）实际监听的端口一致。如果不是默认的
+7890，可通过环境变量 `BIJI_CLASH_PORT` 覆盖——launchd plist 以 `/bin/bash -l`
+（login shell）运行 `run-sync.sh`，会读取 `~/.bash_profile`，在其中添加
+`export BIJI_CLASH_PORT=<端口号>` 即可，无需修改脚本本身（脚本在重新部署时会被
+`cp` 覆盖）。
 
 **为什么需要这一步**：`~/.zshrc` 里的 `_auto_proxy`（`precmd` 钩子）只在交互式 zsh
 会话中运行，每次显示提示符前检测一次 Clash 是否开放。而 launchd 以非交互方式运行

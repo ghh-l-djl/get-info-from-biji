@@ -14,7 +14,7 @@ fi
 # launchd runs this as a non-interactive shell, which never sources
 # ~/.zshrc, so without this git's HTTPS connections to github.com have no
 # proxy and hang until git_ops.ts's timeout (ETIMEDOUT).
-CLASH_PORT=7890
+CLASH_PORT="${BIJI_CLASH_PORT:-7890}"
 if nc -z -G 1 127.0.0.1 "$CLASH_PORT" 2>/dev/null; then
   export http_proxy="http://127.0.0.1:${CLASH_PORT}"
   export https_proxy="http://127.0.0.1:${CLASH_PORT}"
