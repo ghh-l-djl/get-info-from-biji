@@ -132,6 +132,13 @@ biji config set --notify-email <邮箱>
   `GIT_CONFIG_GLOBAL=/dev/null`，避免 `~/.gitconfig` 中类似
   `url "git@github.com:" insteadOf = https://github.com/` 的全局规则把 HTTPS
   远程改写成 SSH（闲置 Mac 上通常没有配置对应的 SSH key）。
+- **注意**：这个 bypass 同时会屏蔽 `~/.gitconfig` 里配置的 credential helper。
+  如果 `syncRepoUrl` 是私有仓库的 HTTPS 地址，`GIT_TERMINAL_PROMPT=0` 又禁止
+  交互式输入凭证，clone/pull/push 会直接报错 `could not read Username for
+  'https://github.com': terminal prompts disabled`。**推荐 `syncRepoUrl` 使用
+  SSH 格式**（`git@github.com:owner/repo.git`），并在该机器上配置好可用的
+  SSH key（`ssh -T git@github.com` 应能成功）——此时上面的 bypass 对该远程不生效
+  （`isHttpUrl` 为 false），SSH key 认证也不依赖 credential helper。
 - `gitPushWithRetry`：
   1. `git push`
   2. 若失败 → `git pull --rebase`

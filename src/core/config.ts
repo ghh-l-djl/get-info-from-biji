@@ -105,6 +105,9 @@ export async function setConfig(options: {
     if (!config.smtp) {
       console.log('提示: smtp 配置（SMTP 发信凭据）需要直接编辑 ~/.bijirc.json，添加 "smtp": { "host", "port", "secure", "user", "pass", "from" } 字段');
     }
+    if (config.syncRepoUrl && /^https:\/\/github\.com\//i.test(config.syncRepoUrl)) {
+      console.log('提示: syncRepoUrl 为 GitHub HTTPS 地址时，biji sync 在非交互模式下无法提供凭证（会报 "could not read Username ... terminal prompts disabled"）。推荐改用 SSH 格式 git@github.com:owner/repo.git，并确保该机器已配置可用的 SSH key（运行 ssh -T git@github.com 验证）');
+    }
   } catch (error) {
     console.error('\n❌ 保存配置失败:', error);
     process.exit(1);
