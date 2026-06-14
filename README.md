@@ -2,6 +2,10 @@
 
 Get笔记 CLI 工具 - 一键获取笔记内容并保存为 Markdown 文件
 
+## 💖 赞助
+
+如果这个项目对你有帮助，欢迎通过 [ghh-l-djl.github.io](https://ghh-l-djl.github.io/) 赞助支持开发～
+
 ## 🌟 功能特点
 
 - 📥 一键获取 Get笔记内容并保存为 Markdown
