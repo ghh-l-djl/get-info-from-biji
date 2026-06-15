@@ -293,10 +293,12 @@ Gmail，投递是 `smtp.host` 和 Gmail 服务器之间的事。
 ## 8. 定时运行（launchd）
 
 模板文件：
-- `scripts/launchd/run-sync.sh` — 检查 `biji` 是否可执行（依赖 `/bin/bash -l`
-  从 `~/.bash_profile` 加载的 PATH，而不是 `~/.zshrc`；找不到时输出诊断信息并以
-  非零退出），再调用 `biji sync`
-- `scripts/launchd/com.bijicli.sync.plist` — `StartCalendarInterval { Minute: 0 }`
+- `scripts/launchd/run-sync.sh` — 检查 `biji` 是否可执行（PATH 由 plist 的
+  `EnvironmentVariables` 提供，不依赖任何 shell 配置文件；找不到时输出诊断信息
+  并以非零退出），再调用 `biji sync`
+- `scripts/launchd/com.bijicli.sync.plist` — `ProgramArguments` 直接执行
+  `run-sync.sh`（脚本自带 `#!/bin/bash` shebang），`EnvironmentVariables.PATH`
+  显式声明 `biji`/`node`/`git` 所在目录；`StartCalendarInterval { Minute: 0 }`
   （每小时整点触发），stdout/stderr 都重定向到 `~/.biji-cli/sync.log`
 
 部署步骤：
@@ -306,8 +308,12 @@ mkdir -p ~/.biji-cli
 cp scripts/launchd/run-sync.sh ~/.biji-cli/run-sync.sh
 chmod +x ~/.biji-cli/run-sync.sh
 
-# 将模板中的 <USERNAME> 替换为 `whoami` 的输出
-sed "s/<USERNAME>/$(whoami)/g" scripts/launchd/com.bijicli.sync.plist > ~/Library/LaunchAgents/com.bijicli.sync.plist
+# 确定 PATH：包含 biji/node/git 所在目录 + 系统默认路径
+PATH_VALUE="$(dirname "$(command -v biji)"):$(dirname "$(command -v git)"):/usr/bin:/bin:/usr/sbin:/sbin"
+
+# 将模板中的 <USERNAME> 替换为 `whoami` 的输出，<PATH> 替换为上面算出的 PATH_VALUE
+sed -e "s/<USERNAME>/$(whoami)/g" -e "s|<PATH>|$PATH_VALUE|g" \
+  scripts/launchd/com.bijicli.sync.plist > ~/Library/LaunchAgents/com.bijicli.sync.plist
 
 launchctl load ~/Library/LaunchAgents/com.bijicli.sync.plist
 ```

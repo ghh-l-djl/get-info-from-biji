@@ -6,10 +6,13 @@
     <string>com.bijicli.sync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
-        <string>-l</string>
         <string>/Users/<USERNAME>/.biji-cli/run-sync.sh</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string><PATH></string>
+    </dict>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Minute</key>
