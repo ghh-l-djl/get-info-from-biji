@@ -293,9 +293,9 @@ Gmail，投递是 `smtp.host` 和 Gmail 服务器之间的事。
 ## 8. 定时运行（launchd）
 
 模板文件：
-- `scripts/launchd/run-sync.sh` — 设置
-  `PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"`，检查 `biji`
-  是否可执行（找不到时输出诊断信息并以非零退出），再调用 `biji sync`
+- `scripts/launchd/run-sync.sh` — 检查 `biji` 是否可执行（依赖 `/bin/bash -l`
+  从 `~/.bash_profile` 加载的 PATH，而不是 `~/.zshrc`；找不到时输出诊断信息并以
+  非零退出），再调用 `biji sync`
 - `scripts/launchd/com.bijicli.sync.plist` — `StartCalendarInterval { Minute: 0 }`
   （每小时整点触发），stdout/stderr 都重定向到 `~/.biji-cli/sync.log`
 

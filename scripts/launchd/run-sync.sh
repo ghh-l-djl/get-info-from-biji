@@ -1,12 +1,10 @@
 #!/bin/bash
 # Wrapper script for `biji sync`, run hourly via launchd on the idle Mac.
-# Sets PATH so git/node/biji resolve under launchd's minimal environment
-# (spec §6).
-
-export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+# launchd runs this via `/bin/bash -l`, which sources ~/.bash_profile (not
+# ~/.zshrc) — that's where node/biji's directory must be added to PATH.
 
 if ! command -v biji >/dev/null 2>&1; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: 'biji' not found on PATH ($PATH). Check your Node/npm install location and update the PATH line above." >&2
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: 'biji' not found on PATH ($PATH). Add its directory to ~/.bash_profile's PATH." >&2
   exit 1
 fi
 
