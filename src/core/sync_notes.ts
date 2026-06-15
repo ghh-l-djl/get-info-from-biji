@@ -8,13 +8,12 @@ import { saveNoteAsMarkdown } from './get_note_detail.js';
 import { getNewNotes } from './get_new_notes.js';
 import { getItemId } from './notes_list.js';
 import { computeNextState, renderStatusMarkdown, loadState, saveState } from './sync_state.js';
-import { gitClone, gitPullRebase, gitCommitAll, gitPushWithRetry, isGitRepo } from './git_ops.js';
+import { getGitTimeoutMs, gitPullRebase, gitCommitAll, gitPushWithRetry, isGitRepo } from './git_ops.js';
 import { sendStatusEmail } from './notify_email.js';
 import { formatTimestamp } from '../utils/time.js';
 import type { SyncState, SyncRunResult, SmtpConfig } from '../types/sync.js';
 
 export interface SyncOptions {
-  syncRepoUrl: string;
   syncRepoPath: string;
   notifyEmail?: string;
   smtp?: SmtpConfig;
@@ -44,17 +43,30 @@ async function notify(options: SyncOptions, subject: string, body: string): Prom
 }
 
 export async function runSync(options: SyncOptions): Promise<void> {
-  const { syncRepoPath, syncRepoUrl } = options;
+  const { syncRepoPath } = options;
 
   if (!isGitRepo(syncRepoPath)) {
-    log(`同步仓库不存在，正在克隆 ${syncRepoUrl} -> ${syncRepoPath}`);
-    const clone = gitClone(syncRepoUrl, syncRepoPath);
-    if (!clone.ok) {
-      log(`克隆失败: ${clone.error}`);
-      await notify(options, 'biji sync: 初始化失败', `克隆同步仓库失败:\n${clone.error}`);
-      process.exitCode = 1;
-      return;
-    }
+    const cloneCmd = `git clone <你的 Obsidian vault 仓库地址> ${syncRepoPath}`;
+    const message =
+      `同步仓库 ${syncRepoPath} 不存在，biji sync 不会自动 clone。\n\n` +
+      `${syncRepoPath} 是 biji sync 读写的本地仓库路径（来自 syncRepoPath 配置，` +
+      `默认 ~/.biji-cli/vault-sync）。请手动执行：\n\n` +
+      `  ${cloneCmd}\n\n` +
+      `如果想把仓库 clone 到别的目录，clone 完成后需要用绝对路径配置 syncRepoPath，` +
+      `指向实际的 clone 目录，例如：\n\n` +
+      `  biji config set --sync-repo-path /绝对/路径/到/你的vault\n\n` +
+      `首次 clone 的体量和耗时不受 biji sync 的 git 超时限制（当前 ${getGitTimeoutMs()}ms）；\n` +
+      `大型 vault（尤其包含 Git LFS 资源）在较慢的网络下手动 clone 也可能需要数十分钟，\n` +
+      `请耐心等待其完成。\n\n` +
+      `如果连接 github.com 超时或速度很慢，建议在 ~/.ssh/config 中为 github.com 配置\n` +
+      `Hostname ssh.github.com / Port 443，改用 GitHub 的 443 端口入口（详见\n` +
+      `docs/biji-sync.md 第 8 节）。\n\n` +
+      `clone 完成后重新运行 biji sync 即可完成首次初始化（不会拉取历史笔记，` +
+      `只有此后新建的笔记才会被同步）。`;
+    log(`同步仓库不存在，需要手动 clone 到: ${syncRepoPath}`);
+    await notify(options, 'biji sync: 需要手动 clone 同步仓库', message);
+    process.exitCode = 1;
+    return;
   }
 
   const pull = gitPullRebase(syncRepoPath);

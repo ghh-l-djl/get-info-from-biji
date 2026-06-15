@@ -7,7 +7,6 @@ import { existsSync, writeFileSync, readFileSync } from 'fs';
 interface BijiConfig {
   outputDir?: string;
   assetsDir?: string;
-  syncRepoUrl?: string;
   syncRepoPath?: string;
   notifyEmail?: string;
   smtp?: {
@@ -36,7 +35,6 @@ export function showConfig() {
       console.log('\n自定义配置:');
       console.log(`  - 输出目录: ${config.outputDir || '未设置'}`);
       console.log(`  - Assets 目录: ${config.assetsDir || '未设置'}`);
-      console.log(`  - 同步仓库 URL: ${config.syncRepoUrl || '未设置'}`);
       console.log(`  - 同步仓库路径: ${config.syncRepoPath || join(homedir(), '.biji-cli', 'vault-sync') + ' (默认)'}`);
       console.log(`  - 失败通知邮箱: ${config.notifyEmail || '未设置'}`);
       console.log(`  - SMTP 配置: ${config.smtp ? '已设置' : '未设置'}`);
@@ -48,7 +46,7 @@ export function showConfig() {
     console.log(`  - 输出目录: ${join(homedir(), 'Documents/A第二大脑')}`);
     console.log(`  - Assets 目录: {输出目录}/Assets`);
     console.log(`  - 同步仓库路径: ${join(homedir(), '.biji-cli', 'vault-sync')}`);
-    console.log(`  - 同步仓库 URL / 失败通知邮箱 / SMTP: 未设置`);
+    console.log(`  - 失败通知邮箱 / SMTP: 未设置`);
   }
 }
 
@@ -58,7 +56,6 @@ export function showConfig() {
 export async function setConfig(options: {
   outputDir?: string;
   assetsDir?: string;
-  syncRepoUrl?: string;
   syncRepoPath?: string;
   notifyEmail?: string;
 }) {
@@ -80,9 +77,6 @@ export async function setConfig(options: {
   if (options.assetsDir) {
     config.assetsDir = options.assetsDir;
   }
-  if (options.syncRepoUrl) {
-    config.syncRepoUrl = options.syncRepoUrl;
-  }
   if (options.syncRepoPath) {
     config.syncRepoPath = options.syncRepoPath;
   }
@@ -98,15 +92,11 @@ export async function setConfig(options: {
     console.log('\n当前配置:');
     console.log(`  - 输出目录: ${config.outputDir || '未设置'}`);
     console.log(`  - Assets 目录: ${config.assetsDir || '未设置'}`);
-    console.log(`  - 同步仓库 URL: ${config.syncRepoUrl || '未设置'}`);
     console.log(`  - 同步仓库路径: ${config.syncRepoPath || '未设置（默认 ~/.biji-cli/vault-sync）'}`);
     console.log(`  - 失败通知邮箱: ${config.notifyEmail || '未设置'}`);
     console.log('\n提示: 修改配置后无需重启，立即生效');
     if (!config.smtp) {
       console.log('提示: smtp 配置（SMTP 发信凭据）需要直接编辑 ~/.bijirc.json，添加 "smtp": { "host", "port", "secure", "user", "pass", "from" } 字段');
-    }
-    if (config.syncRepoUrl && /^https:\/\/github\.com\//i.test(config.syncRepoUrl)) {
-      console.log('提示: syncRepoUrl 为 GitHub HTTPS 地址时，biji sync 在非交互模式下无法提供凭证（会报 "could not read Username ... terminal prompts disabled"）。推荐改用 SSH 格式 git@github.com:owner/repo.git，并确保该机器已配置可用的 SSH key（运行 ssh -T git@github.com 验证）');
     }
   } catch (error) {
     console.error('\n❌ 保存配置失败:', error);
@@ -160,8 +150,6 @@ export async function configWizard() {
 
     // 保存配置
     await setConfig({ outputDir, assetsDir });
-
-    console.log('提示: 如果 biji sync 在 launchd 定时任务中需要通过本机代理访问 GitHub，且代理端口不是默认的 7890，请在 ~/.bash_profile 中设置 export BIJI_CLASH_PORT=<端口号>（详见 docs/biji-sync.md §8.1）');
   } catch (error) {
     rl.close();
     console.error('\n❌ 配置取消:', error);

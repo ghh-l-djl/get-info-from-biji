@@ -10,7 +10,6 @@ import { fileURLToPath } from 'url';
 interface BijiConfig {
   outputDir?: string;
   assetsDir?: string;
-  syncRepoUrl?: string;
   syncRepoPath?: string;
   notifyEmail?: string;
   smtp?: {
@@ -124,9 +123,6 @@ export const BIJI_BASE_URL = 'https://get-notes.luojilab.com/voicenotes/web';
 export const BIJI_WEB_URL = 'https://www.biji.com';
 
 // ==================== 同步配置 (biji sync) ====================
-
-/** 同步仓库的 git 远程地址，例如 git@github.com:yourname/obsidian-vault.git */
-export const SYNC_REPO_URL: string | undefined = process.env.BIJI_SYNC_REPO_URL || userConfig.syncRepoUrl;
 
 /** 同步仓库的本地克隆路径，默认 ~/.biji-cli/vault-sync */
 export const SYNC_REPO_PATH: string =

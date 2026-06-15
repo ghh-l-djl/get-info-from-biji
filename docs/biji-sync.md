@@ -10,8 +10,10 @@ launchd）把新增的 biji.com 笔记同步到一个独立的 Obsidian vault gi
 
 每次运行 `biji sync`（`runSync()`，`src/core/sync_notes.ts`）按以下步骤执行：
 
-1. **确保本地仓库存在**：若 `syncRepoPath` 不是 git 仓库（`isGitRepo`），执行
-   `git clone <syncRepoUrl> <syncRepoPath>`。克隆失败 → 记录日志、发邮件、`exitCode=1` 退出。
+1. **检查本地仓库是否存在**：若 `syncRepoPath`（本地仓库的绝对路径，见第 2 节）不是
+   git 仓库（`isGitRepo`），**不会自动 clone**——记录日志、发邮件提示用户手动 `git
+   clone` 到该路径（或 clone 到别处后用绝对路径重新配置 `syncRepoPath`），
+   `exitCode=1` 退出。原因和手动 clone 后的网络配置建议见第 8 节。
 2. **`git pull --rebase`**：拉取远端最新内容。失败 → 记录日志、发邮件、`exitCode=1` 退出。
 3. **读取状态文件** `<syncRepoPath>/.biji-sync-state.json`：
    - **不存在** → 首次运行：写入初始状态（`lastSyncedAt = lastChangedAt = 当前时间`，
@@ -52,16 +54,14 @@ launchd）把新增的 biji.com 笔记同步到一个独立的 Obsidian vault gi
 
 | 配置项（`~/.bijirc.json`） | 环境变量 | 默认值 | 说明 |
 |---|---|---|---|
-| `syncRepoUrl` | `BIJI_SYNC_REPO_URL` | 无（必填） | 同步目标 git 仓库地址；未设置时 `biji sync` 直接报错退出 |
-| `syncRepoPath` | `BIJI_SYNC_REPO_PATH` | `~/.biji-cli/vault-sync` | 本地 clone 路径 |
+| `syncRepoPath` | `BIJI_SYNC_REPO_PATH` | `~/.biji-cli/vault-sync` | 本地仓库的绝对路径——必须是手动 `git clone` 同步仓库后的实际目录（见第 1 节、第 8 节） |
 | `notifyEmail` | `BIJI_NOTIFY_EMAIL` | 无（可选） | 失败/恢复通知收件地址 |
 | `smtp` | 无（仅配置文件） | 无（可选） | `{ host, port, secure, user, pass, from }`，发信凭据 |
 
-`syncRepoUrl` / `syncRepoPath` / `notifyEmail` 可通过：
+`syncRepoPath` / `notifyEmail` 可通过：
 
 ```bash
-biji config set --sync-repo-url <git 地址>
-biji config set --sync-repo-path <本地路径>
+biji config set --sync-repo-path <本地仓库的绝对路径>
 biji config set --notify-email <邮箱>
 ```
 
@@ -128,17 +128,11 @@ biji config set --notify-email <邮箱>
 - 所有 git 命令使用 `GIT_TERMINAL_PROMPT=0` + 300 秒（5 分钟）超时（可通过环境变量
   `BIJI_GIT_TIMEOUT_MS` 覆盖），避免无人值守时卡在交互式凭据/host key 提示，同时给
   大型私有 vault 的克隆/拉取留出足够时间。
-- 对 HTTPS 远程地址（`clone` / `pull --rebase` / `push`），临时设置
-  `GIT_CONFIG_GLOBAL=/dev/null`，避免 `~/.gitconfig` 中类似
-  `url "git@github.com:" insteadOf = https://github.com/` 的全局规则把 HTTPS
-  远程改写成 SSH（闲置 Mac 上通常没有配置对应的 SSH key）。
-- **注意**：这个 bypass 同时会屏蔽 `~/.gitconfig` 里配置的 credential helper。
-  如果 `syncRepoUrl` 是私有仓库的 HTTPS 地址，`GIT_TERMINAL_PROMPT=0` 又禁止
-  交互式输入凭证，clone/pull/push 会直接报错 `could not read Username for
-  'https://github.com': terminal prompts disabled`。**推荐 `syncRepoUrl` 使用
-  SSH 格式**（`git@github.com:owner/repo.git`），并在该机器上配置好可用的
-  SSH key（`ssh -T git@github.com` 应能成功）——此时上面的 bypass 对该远程不生效
-  （`isHttpUrl` 为 false），SSH key 认证也不依赖 credential helper。
+- git 命令在 `syncRepoPath` 目录下直接执行 `git pull` / `git push`，使用该仓库自身的
+  `origin` remote（由手动 `git clone` 时决定），不修改 `~/.gitconfig`：该机器全局
+  git 配置中的 URL 重写规则（如 `insteadOf`）、credential helper 等都会正常生效。
+  如果这台机器访问 GitHub 存在连通性问题（例如某个端口被网络封锁），参见第 8 节
+  的 `~/.ssh/config` 配置说明。
 - `gitPushWithRetry`：
   1. `git push`
   2. 若失败 → `git pull --rebase`
@@ -151,7 +145,6 @@ biji config set --notify-email <邮箱>
 
 `biji sync` 内部用 [`nodemailer`](https://nodemailer.com/) 通过标准 **SMTP 协议**发邮件——
 本质上是"借用一个邮箱账号的登录凭据，登进它的发信服务器，代它发一封纯文本邮件给收件人"。
-这跟 biji.com **完全无关**：
 
 ```
 biji sync 进程
@@ -256,16 +249,35 @@ Gmail，投递是 `smtp.host` 和 Gmail 服务器之间的事。
 
 仅在 `notifyEmail` 与 `smtp` 均已配置时发送（10 秒连接/握手/socket 超时）。触发条件：
 
+- **同步仓库不存在**：`syncRepoPath` 不是 git 仓库（见第 1 节第 1 步）——标题
+  "biji sync: 需要手动 clone 同步仓库"
+- **git 失败**：pull --rebase / commit / push（含重试后仍失败）
 - **状态翻转**：`lastStatus` 由 `ok → error`（标题"biji sync: 出错"）或
   `error → ok`（标题"biji sync: 已恢复"）
-- **git 失败**：clone / pull --rebase / commit / push（含重试后仍失败）
 
 **不会**因为以下情况发邮件：常规成功同步（即使有新笔记）、连续多次相同的 error 状态
 （避免问题未解决时每小时收到一封重复邮件）。配置好之后第一次运行 `biji sync`
-大概率不会触发任何邮件，这是正常现象, 如果想要验证可以先设置错误的git repo url, 运行 `biji sync`, 此时会发送邮件。
+大概率不会触发任何邮件，这是正常现象。
 [邮件配置](../screenshot/confirm-notify.png)
 
 发信失败本身只记录日志，不影响 `runSync` 的整体结果（best-effort，邮件是次要通知层）。
+
+### 6.6 测试邮件功能
+
+配置好 `notifyEmail` + `smtp` 后，可用以下方式快速触发一封邮件，验证 SMTP 凭据和收件
+地址是否工作正常：
+
+- **最简单**（无需额外操作）：如果 `syncRepoPath` 还不是 git 仓库（例如刚安装好、
+  还没手动 clone 同步仓库, 已clone情况可以暂时改名），直接运行 `biji sync` 即可触发"biji sync: 需要手动
+  clone 同步仓库"邮件。
+- **测试 git 失败邮件**：在 `syncRepoPath` 目录下执行
+  `git remote set-url origin <一个不存在的地址>`，再运行 `biji sync`，此时
+  `git pull --rebase` 会失败，触发"biji sync: git pull 失败"邮件。测试完成后用
+  `git remote set-url origin <正确地址>` 改回来。
+- **测试状态翻转邮件**：需要连续两次运行之间 `lastStatus` 发生变化。例如先在未
+  登录状态下运行一次 `biji sync`（`getNewNotes` 抛出未登录异常，`lastStatus`
+  变为 `error`，触发"biji sync: 出错"），再 `biji login` 后运行一次（`lastStatus`
+  变回 `ok`，触发"biji sync: 已恢复"）。
 
 ## 7. 已知限制
 
@@ -283,42 +295,9 @@ Gmail，投递是 `smtp.host` 和 Gmail 服务器之间的事。
 模板文件：
 - `scripts/launchd/run-sync.sh` — 设置
   `PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"`，检查 `biji`
-  是否可执行（找不到时输出诊断信息并以非零退出），检测本机 Clash 代理（见 8.1），
-  再调用 `biji sync`
+  是否可执行（找不到时输出诊断信息并以非零退出），再调用 `biji sync`
 - `scripts/launchd/com.bijicli.sync.plist` — `StartCalendarInterval { Minute: 0 }`
   （每小时整点触发），stdout/stderr 都重定向到 `~/.biji-cli/sync.log`
-
-### 8.1 Clash 代理检测
-
-`run-sync.sh` 在调用 `biji sync` 前会检测本机代理端口（默认 `127.0.0.1:7890`，
-Clash 默认端口）是否开放，若开放则导出 `http_proxy` / `https_proxy` /
-`all_proxy` / `no_proxy`：
-
-```bash
-CLASH_PORT="${BIJI_CLASH_PORT:-7890}"
-if nc -z -G 1 127.0.0.1 "$CLASH_PORT" 2>/dev/null; then
-  export http_proxy="http://127.0.0.1:${CLASH_PORT}"
-  export https_proxy="http://127.0.0.1:${CLASH_PORT}"
-  export all_proxy="socks5://127.0.0.1:${CLASH_PORT}"
-  export no_proxy="localhost,127.0.0.1,::1"
-fi
-```
-
-这个端口需要和本机代理软件（Clash 等）实际监听的端口一致。如果不是默认的
-7890，可通过环境变量 `BIJI_CLASH_PORT` 覆盖——launchd plist 以 `/bin/bash -l`
-（login shell）运行 `run-sync.sh`，会读取 `~/.bash_profile`，在其中添加
-`export BIJI_CLASH_PORT=<端口号>` 即可，无需修改脚本本身（脚本在重新部署时会被
-`cp` 覆盖）。
-
-**为什么需要这一步**：`~/.zshrc` 里的 `_auto_proxy`（`precmd` 钩子）只在交互式 zsh
-会话中运行，每次显示提示符前检测一次 Clash 是否开放。而 launchd 以非交互方式运行
-`run-sync.sh`，永远不会触发这个钩子，因此 `git pull --rebase` 等命令会在没有代理的
-情况下直连 `github.com`——如果这台 Mac 的直连网络不通，就会一直挂到第 5 节所述的
-超时（`ETIMEDOUT`）。这段检测是 `_auto_proxy` 的"一次性"版本：每次 launchd 触发时
-检测一次，而不是每次提示符都检测。
-
-如果 Clash 未运行（`nc` 检测失败），不设置任何代理变量，行为与改动前一致（直连，
-失败后记录日志+发邮件）。
 
 部署步骤：
 
@@ -335,3 +314,61 @@ launchctl load ~/Library/LaunchAgents/com.bijicli.sync.plist
 
 注意：launchd LaunchAgent 只在用户处于登录会话时运行，闲置 Mac 需要开启自动登录，
 否则定时任务不会触发。
+
+### SSH 远程的网络配置与首次 clone
+
+如果这台机器直连 `github.com:22` 不通或很慢，在 `~/.ssh/config`（权限建议 `600`）中
+为 `github.com` 配置 GitHub 的 443 端口入口：
+
+```sshconfig
+Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+```
+
+- `HostName ssh.github.com` + `Port 443`：使用 GitHub 官方提供的备用 SSH 入口，
+  规避 22 端口在部分网络下被封锁的问题，**不需要本地代理**。
+- 这个配置同时覆盖 HTTPS 格式的仓库 remote：如果该机器 `~/.gitconfig` 中有
+  `url "git@github.com:" insteadOf = https://github.com/` 之类的规则，HTTPS
+  地址会被静默改写为 SSH 后命中上面的 `Host github.com` 配置；没有这条规则时，
+  HTTPS 仍按 HTTPS 直连，需另行确保该机器到 `github.com:443` 的连通性。
+
+验证：`ssh -T git@github.com`，预期输出
+`Hi <用户名>! You've successfully authenticated, but GitHub does not provide
+shell access.`。若报 `Permission denied (publickey)`，说明这台机器还没有把
+SSH key 添加到 GitHub 账号（GitHub Settings → SSH and GPG keys）。
+
+**不要**通过 `ProxyCommand` 把这个连接再转给本机的 SOCKS5 代理（例如 Clash 的
+`127.0.0.1:7890`）：实测 `ssh.github.com:443` 经由本机代理可以完成认证甚至开始
+传输数据，但会在传输中途被代理悄悄断开（`Connection closed by UNKNOWN port
+65535` / `fatal: Could not read from remote repository`），对 `ssh -T` 这类
+一次性小请求看不出问题，但 `git clone` 这种持续传输会在传完一小部分后失败。直连
+`ssh.github.com:443`（不经代理）虽然可能较慢，但连接是稳定的。
+
+#### 首次 clone 需要手动执行
+
+`biji sync` 检测到 `syncRepoPath` 不是 git 仓库时，**不会自动 `git clone`**，
+只会记录日志并（若已配置邮件通知）发送一封包含具体命令的提示邮件，然后
+`exitCode=1` 退出。需要手动执行：
+
+```bash
+git clone <你的 Obsidian vault 仓库地址> <syncRepoPath>
+```
+
+`<syncRepoPath>` 默认是 `~/.biji-cli/vault-sync`；如果想 clone 到别的目录，clone
+完成后需要用绝对路径配置 `syncRepoPath`（见第 2 节），让它指向实际的 clone 目录：
+
+```bash
+biji config set --sync-repo-path /绝对/路径/到/你的vault
+```
+
+原因：首次 clone 要拉取完整的仓库历史，如果 vault 体积较大（尤其包含 Git LFS
+资源）且网络较慢（例如走上面的 `ssh.github.com:443` 直连），可能需要数十分钟，
+远超第 5 节中 `BIJI_GIT_TIMEOUT_MS` 的默认 300 秒——这正是之前看到的
+`spawnSync git ETIMEDOUT`（已建立连接、正在传输，只是 300 秒内传不完）的根因。
+手动执行不受这个超时限制，可以耐心等它跑完。
+
+clone 完成后正常运行 `biji sync` 即可完成首次初始化（写入状态文件并提交推送，
+不会拉取任何历史笔记）；此后每次同步只是增量的 `pull --rebase` + `push`，数据量
+很小，300 秒的默认超时完全够用。

@@ -348,7 +348,6 @@ biji install-skill --force
 {
   "outputDir": "~/Documents/MyNotes",
   "assetsDir": "~/Documents/MyNotes/Assets",
-  "syncRepoUrl": "git@github.com:yourname/obsidian-vault.git",
   "syncRepoPath": "~/.biji-cli/vault-sync",
   "notifyEmail": "you@example.com",
   "smtp": {
@@ -362,7 +361,7 @@ biji install-skill --force
 }
 ```
 
-**注意**：`syncRepoUrl`/`syncRepoPath`/`notifyEmail` 可通过 `biji config set` 设置；`smtp` 字段较复杂（嵌套对象），需要直接编辑 `~/.bijirc.json`。`smtp` 仅用于 `biji sync` 的失败/恢复通知邮件，建议使用专用的低权限凭据（例如单独 Gmail 账号的「应用专用密码」），不要使用主账号密码。
+**注意**：`syncRepoPath`/`notifyEmail` 可通过 `biji config set` 设置；`smtp` 字段较复杂（嵌套对象），需要直接编辑 `~/.bijirc.json`。`smtp` 仅用于 `biji sync` 的失败/恢复通知邮件，建议使用专用的低权限凭据（例如单独 Gmail 账号的「应用专用密码」），不要使用主账号密码。
 
 **注意**：
 - 配置文件修改后立即生效，无需重启
@@ -393,11 +392,16 @@ biji install-skill --force
 
 ```bash
 biji login
-biji config set --sync-repo-url git@github.com:yourname/obsidian-vault.git
-# 可选，默认 ~/.biji-cli/vault-sync
-biji config set --sync-repo-path ~/.biji-cli/vault-sync
 # 可选，配置失败/恢复通知邮箱
 biji config set --notify-email you@example.com
+```
+
+`syncRepoPath` 默认是 `~/.biji-cli/vault-sync`，即 biji sync 读写的本地仓库路径。
+如果你打算把同步仓库 clone 到别的位置（见下方「首次运行」），需要用绝对路径告诉
+biji sync 实际的 clone 目录：
+
+```bash
+biji config set --sync-repo-path /绝对/路径/到/你的vault
 ```
 
 如需邮件通知，编辑 `~/.bijirc.json`，添加 `smtp` 字段（见上方配置文件格式）。
@@ -405,10 +409,17 @@ biji config set --notify-email you@example.com
 ### 首次运行
 
 ```bash
+# 1. 手动 clone 同步仓库到 syncRepoPath（默认 ~/.biji-cli/vault-sync，或上面
+#    配置的绝对路径）。不受 biji sync 的 git 超时限制，大型 vault 可能需要较长
+#    时间，如遇连接超时见 docs/biji-sync.md 第 8 节的 SSH 443 端口配置
+git clone <你的 Obsidian vault 仓库地址> ~/.biji-cli/vault-sync
+
+# 2. 运行 biji sync 完成初始化
 biji sync
 ```
 
-首次运行会克隆 `syncRepoPath`（如不存在）、初始化
+若 `syncRepoPath` 还不是 git 仓库，`biji sync` 不会自动 clone，只会提示上面的命令并以
+`exitCode=1` 退出。clone 完成后再运行 `biji sync`，会初始化
 `.biji-sync-state.json` / `_biji-sync-status.md` 并提交推送，但**不会**拉取
 任何get笔记的历史笔记 —— 只有此后新建的笔记才会被同步。
 
@@ -433,11 +444,9 @@ sed "s/<USERNAME>/$(whoami)/g" scripts/launchd/com.bijicli.sync.plist > ~/Librar
 launchctl load ~/Library/LaunchAgents/com.bijicli.sync.plist
 ```
 
-每小时整点运行一次。`run-sync.sh` 会自动检测本机代理（默认端口 `7890`，对应
-Clash 默认配置）并在同步时使用；如果你的代理监听其他端口，在
-`~/.bash_profile` 中添加 `export BIJI_CLASH_PORT=<端口号>`（launchd 以 login
-shell 方式运行该脚本，会读取此文件）。日志和邮件通知规则详见
-[`docs/biji-sync.md`](docs/biji-sync.md) 第 6 节，代理检测细节见该文档 §8.1。
+每小时整点运行一次。日志和邮件通知规则详见
+[`docs/biji-sync.md`](docs/biji-sync.md) 第 6 节；如果这台机器访问 GitHub
+存在网络连通性问题，参见该文档第 8 节的 SSH 配置说明。
 
 ---
 

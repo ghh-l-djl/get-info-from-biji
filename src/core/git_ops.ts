@@ -20,44 +20,20 @@ export function getGitTimeoutMs(): number {
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_GIT_TIMEOUT_MS;
 }
 
-interface RunOptions {
-  bypassUserGitConfig?: boolean;
-}
-
-function isHttpUrl(url: string | undefined): boolean {
-  return !!url && /^https?:\/\//i.test(url);
-}
-
-function gitEnv(options: RunOptions = {}): NodeJS.ProcessEnv {
+function gitEnv(): NodeJS.ProcessEnv {
   return {
     ...process.env,
     GIT_TERMINAL_PROMPT: '0',
-    ...(options.bypassUserGitConfig ? { GIT_CONFIG_GLOBAL: '/dev/null' } : {}),
   };
 }
 
-function getRemoteOriginUrl(repoPath: string): string | undefined {
-  try {
-    return execFileSync('git', ['config', '--get', 'remote.origin.url'], {
-      cwd: repoPath,
-      stdio: 'pipe',
-      timeout: getGitTimeoutMs(),
-      env: gitEnv(),
-    })
-      .toString()
-      .trim();
-  } catch {
-    return undefined;
-  }
-}
-
-function run(args: string[], cwd?: string, options: RunOptions = {}): GitResult {
+function run(args: string[], cwd?: string): GitResult {
   try {
     execFileSync('git', args, {
       cwd,
       stdio: 'pipe',
       timeout: getGitTimeoutMs(),
-      env: gitEnv(options),
+      env: gitEnv(),
     });
     return { ok: true };
   } catch (e: any) {
@@ -76,12 +52,8 @@ export function isGitRepo(repoPath: string): boolean {
   return existsSync(join(repoPath, '.git'));
 }
 
-export function gitClone(url: string, targetPath: string): GitResult {
-  return run(['clone', url, targetPath], undefined, { bypassUserGitConfig: isHttpUrl(url) });
-}
-
 export function gitPullRebase(repoPath: string): GitResult {
-  return run(['pull', '--rebase'], repoPath, { bypassUserGitConfig: isHttpUrl(getRemoteOriginUrl(repoPath)) });
+  return run(['pull', '--rebase'], repoPath);
 }
 
 /**
@@ -118,8 +90,7 @@ export function gitRebaseAbort(repoPath: string): void {
  * clean and the local commit is retried on the next scheduled run.
  */
 export function gitPushWithRetry(repoPath: string): GitResult {
-  const bypassUserGitConfig = isHttpUrl(getRemoteOriginUrl(repoPath));
-  const firstPush = run(['push'], repoPath, { bypassUserGitConfig });
+  const firstPush = run(['push'], repoPath);
   if (firstPush.ok) {
     return firstPush;
   }
@@ -133,7 +104,7 @@ export function gitPushWithRetry(repoPath: string): GitResult {
     };
   }
 
-  const secondPush = run(['push'], repoPath, { bypassUserGitConfig });
+  const secondPush = run(['push'], repoPath);
   if (!secondPush.ok) {
     // Defensive only: the pull above succeeded, so no rebase should be in
     // progress here — this abort is a harmless no-op safety net. The primary
