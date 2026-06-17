@@ -53,7 +53,7 @@ export function isGitRepo(repoPath: string): boolean {
 }
 
 export function gitPullRebase(repoPath: string): GitResult {
-  return run(['pull', '--rebase'], repoPath);
+  return run(['pull', '--rebase', '--autostash'], repoPath);
 }
 
 /**
