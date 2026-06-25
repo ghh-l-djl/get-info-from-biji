@@ -47,14 +47,14 @@ describe('extractSourceTags', () => {
 
 describe('buildFrontmatter', () => {
   it('always includes an empty tags field for manual classification', () => {
-    const fm = buildFrontmatter({ title: '标题', url: 'https://biji.com/note/1' });
+    const fm = buildFrontmatter({ web_title: '标题', url: 'https://biji.com/note/1' });
 
     expect(fm).toContain('tags: []');
   });
 
   it('renders sourceTags as a block list when present', () => {
     const fm = buildFrontmatter({
-      title: '标题',
+      web_title: '标题',
       url: 'https://biji.com/note/1',
       sourceTags: ['美食', '探店'],
     });
@@ -64,7 +64,7 @@ describe('buildFrontmatter', () => {
 
   it('omits sourceTags entirely when empty', () => {
     const fm = buildFrontmatter({
-      title: '标题',
+      web_title: '标题',
       url: 'https://biji.com/note/1',
       sourceTags: [],
     });
@@ -73,16 +73,16 @@ describe('buildFrontmatter', () => {
   });
 
   it('quotes the title safely and wraps the block in --- delimiters', () => {
-    const fm = buildFrontmatter({ title: '标题: 带"引号"的标题', url: 'https://biji.com/note/1' });
+    const fm = buildFrontmatter({ web_title: '标题: 带"引号"的标题', url: 'https://biji.com/note/1' });
 
     expect(fm.startsWith('---\n')).toBe(true);
-    expect(fm).toContain('title: "标题: 带\\"引号\\"的标题"');
+    expect(fm).toContain('web_title: "标题: 带\\"引号\\"的标题"');
     expect(fm.endsWith('---\n\n')).toBe(true);
   });
 
   it('includes publishTime when provided', () => {
     const fm = buildFrontmatter({
-      title: '标题',
+      web_title: '标题',
       url: 'https://biji.com/note/1',
       publishTime: '2026-06-25T10:00:00.000Z',
     });

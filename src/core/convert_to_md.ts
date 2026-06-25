@@ -140,14 +140,14 @@ export async function convertToMarkdown(
   const { body, tags: sourceTags } = extractSourceTags(newContent);
 
   const frontmatter = buildFrontmatter({
-    title,
-    url: options.noteUrl ?? `https://www.biji.com/note/${data.c.noteId}`,
+    web_title: data.c.web_title ?? title,
+    url: data.c.url ?? options.noteUrl ?? `https://www.biji.com/note/${data.c.noteId}`,
     publishTime: data.c.createTime ? new Date(data.c.createTime).toISOString() : undefined,
     sourceTags,
   });
 
   // 写入 markdown 文件
-  const mdContent = `${frontmatter}# ${title}\n\n${body}`;
+  const mdContent = `${frontmatter}${body}`;
   writeFileSync(mdPath, mdContent, 'utf-8');
 
   console.log(`\n✓ 转换完成！`);

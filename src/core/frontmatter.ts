@@ -33,7 +33,7 @@ export function extractSourceTags(content: string): ExtractedTags {
 }
 
 export interface FrontmatterFields {
-  title: string;
+  web_title: string;
   url: string;
   publishTime?: string;
   sourceTags?: string[];
@@ -44,12 +44,19 @@ function yamlString(value: string): string {
 }
 
 export function buildFrontmatter(fields: FrontmatterFields): string {
-  const lines = ['---', `title: ${yamlString(fields.title)}`, `url: ${yamlString(fields.url)}`];
+  const lines = [
+    '---',
+    `web_title: ${yamlString(fields.web_title)}`,
+    `url: ${yamlString(fields.url)}`,
+  ];
 
   if (fields.publishTime) {
     lines.push(`publishTime: ${yamlString(fields.publishTime)}`);
   }
 
+  lines.push('source: ai');
+  lines.push('ai_skill: biji-sync');
+  lines.push('status: inbox');
   lines.push('tags: []');
 
   if (fields.sourceTags && fields.sourceTags.length > 0) {
@@ -59,6 +66,7 @@ export function buildFrontmatter(fields: FrontmatterFields): string {
     }
   }
 
+  lines.push('publish: []');
   lines.push('---', '');
   return lines.join('\n') + '\n';
 }

@@ -32,6 +32,8 @@ export interface BijiApiResponse {
   c: {
     content: string;
     title: string;
+    web_title?: string;
+    url?: string;
     noteId: string;
     userId?: string;
     createTime?: number;
