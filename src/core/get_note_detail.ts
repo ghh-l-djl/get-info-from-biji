@@ -132,10 +132,14 @@ export async function saveNoteAsMarkdown(options: SaveMarkdownOptions): Promise<
   saveToCache(CACHE_OPTIONS, cacheKey, apiData);
 
   // 转换为 Markdown
+  const noteUrl = isOriginal
+    ? `https://www.biji.com/note/${noteId}/web`
+    : `https://www.biji.com/note/${noteId}`;
   const result = await convertToMarkdown(apiData, {
     outputDir,
     assetsDir,
     imageFormat,
+    noteUrl,
   });
 
   return result;

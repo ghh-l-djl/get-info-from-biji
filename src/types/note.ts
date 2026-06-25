@@ -44,6 +44,7 @@ export interface MarkdownOutputOptions {
   outputDir: string;
   assetsDir?: string;
   imageFormat?: 'obsidian' | 'standard';
+  noteUrl?: string;
 }
 
 export interface ConversionResult {

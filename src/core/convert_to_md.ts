@@ -2,6 +2,7 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { BijiApiResponse, MarkdownOutputOptions, ConversionResult } from '../types/note.js';
+import { extractSourceTags, buildFrontmatter } from './frontmatter.js';
 
 /**
  * 下载图片到本地
@@ -135,8 +136,18 @@ export async function convertToMarkdown(
   const mdFilename = `${safeTitle}.md`;
   const mdPath = join(outputDir, mdFilename);
 
+  // 提取小红书自带的话题标签，转义正文中的 #，避免被 Obsidian 当作分类标签收录
+  const { body, tags: sourceTags } = extractSourceTags(newContent);
+
+  const frontmatter = buildFrontmatter({
+    title,
+    url: options.noteUrl ?? `https://www.biji.com/note/${data.c.noteId}`,
+    publishTime: data.c.createTime ? new Date(data.c.createTime).toISOString() : undefined,
+    sourceTags,
+  });
+
   // 写入 markdown 文件
-  const mdContent = `# ${title}\n\n${newContent}`;
+  const mdContent = `${frontmatter}# ${title}\n\n${body}`;
   writeFileSync(mdPath, mdContent, 'utf-8');
 
   console.log(`\n✓ 转换完成！`);
