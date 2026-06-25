@@ -1,4 +1,4 @@
-// 将 Get笔记 JSON 数据转换为 Markdown 文件
+// 将 得到大脑 JSON 数据转换为 Markdown 文件
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { BijiApiResponse, MarkdownOutputOptions, ConversionResult } from '../types/note.js';
@@ -54,7 +54,7 @@ async function getImageExtension(url: string): Promise<string> {
 }
 
 /**
- * 将 Get笔记 JSON 转换为 Markdown 文件
+ * 将 得到大脑 JSON 转换为 Markdown 文件
  */
 export async function convertToMarkdown(
   data: BijiApiResponse,

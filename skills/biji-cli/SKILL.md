@@ -1,13 +1,13 @@
 ---
 name: biji-cli
-description: Get笔记 CLI 工具 - 从 biji.com 获取笔记并保存为 Markdown。触发词：保存笔记、获取 biji、biji 笔记、get-note。
+description: 得到大脑 CLI 工具 - 从 biji.com 获取笔记并保存为 Markdown。触发词：保存笔记、获取 biji、biji 笔记、get-note。
 ---
 
 # biji-cli Skill
 
 ## 用途
 
-从 biji.com（Get笔记）获取笔记内容并自动保存为 Markdown 格式到本地，包括：
+从 biji.com（得到大脑）获取笔记内容并自动保存为 Markdown 格式到本地，包括：
 - 获取指定笔记（通过 URL 或 ID）
 - 获取最新笔记
 - 获取最新原文笔记

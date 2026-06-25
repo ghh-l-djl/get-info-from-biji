@@ -2,7 +2,7 @@
 
 ## 1. Background / Problem
 
-`biji-cli` currently provides `get-latest` / `get-latest-original`, which fetch only the single most-recently-created note from biji.com (Get笔记) and write it as Markdown into a local folder (default `~/Documents/A第二大脑`, the user's Obsidian vault).
+`biji-cli` currently provides `get-latest` / `get-latest-original`, which fetch only the single most-recently-created note from biji.com (得到大脑) and write it as Markdown into a local folder (default `~/Documents/A第二大脑`, the user's Obsidian vault).
 
 Goal: automate this so new biji notes appear in the Obsidian vault periodically without manual CLI invocation.
 

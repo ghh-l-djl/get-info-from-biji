@@ -1,6 +1,6 @@
 # biji-cli
 
-Get笔记 CLI 工具 - 一键获取笔记内容并保存为 Markdown 文件
+得到大脑 CLI 工具 - 一键获取笔记内容并保存到obsidian
 
 ## 💖 赞助
 
@@ -8,7 +8,7 @@ Get笔记 CLI 工具 - 一键获取笔记内容并保存为 Markdown 文件
 
 ## 🌟 功能特点
 
-- 📥 一键获取 Get笔记内容并保存为 Markdown
+- 📥 一键获取 得到大脑内容并保存到obsidian
 - 🖼️ 自动下载图片到本地
 - 📝 支持普通笔记和原文笔记两种格式
 - 🔄 支持获取最新一篇笔记
@@ -421,7 +421,7 @@ biji sync
 若 `syncRepoPath` 还不是 git 仓库，`biji sync` 不会自动 clone，只会提示上面的命令并以
 `exitCode=1` 退出。clone 完成后再运行 `biji sync`，会初始化
 `.biji-sync-state.json` / `_biji-sync-status.md` 并提交推送，但**不会**拉取
-任何get笔记的历史笔记 —— 只有此后新建的笔记才会被同步。
+任何得到大脑的历史笔记 —— 只有此后新建的笔记才会被同步。
 
 ### 同步内容
 

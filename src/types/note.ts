@@ -27,7 +27,7 @@ export interface BijiUser {
   email?: string;
 }
 
-// Get笔记 API 返回的数据类型
+// 得到大脑 API 返回的数据类型
 export interface BijiApiResponse {
   c: {
     content: string;

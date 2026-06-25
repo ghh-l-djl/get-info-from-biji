@@ -1,7 +1,7 @@
 {
   "name": "biji-cli",
-  "version": "1.2.1",
-  "description": "Get笔记 CLI 工具和 MCP 服务器 - 帮助用户获取和管理 Get笔记 内容",
+  "version": "1.2.2",
+  "description": "得到大脑 CLI 工具和 MCP 服务器 - 帮助用户获取和管理 得到大脑 内容",
   "type": "module",
   "main": "dist/mcp/index.js",
   "types": "dist/index.d.ts",
@@ -23,7 +23,7 @@
     "mcp",
     "model-context-protocol",
     "biji",
-    "get笔记",
+    "得到大脑",
     "content-fetcher",
     "cli",
     "automation"

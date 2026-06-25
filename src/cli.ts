@@ -162,7 +162,7 @@ async function main() {
     case 'help':
     default:
       console.log(`
-biji-cli - Get笔记 CLI 工具
+biji-cli - 得到大脑 CLI 工具
 
 命令:
   biji login                         登录 biji.com 账号

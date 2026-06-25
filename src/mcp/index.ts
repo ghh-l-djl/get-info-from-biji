@@ -93,7 +93,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Get笔记 MCP 服务器已启动');
+  console.error('得到大脑 MCP 服务器已启动');
 }
 
 main().catch((error) => {
