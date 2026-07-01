@@ -1,6 +1,6 @@
 {
   "name": "biji-cli",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "得到大脑 CLI 工具和 MCP 服务器 - 帮助用户获取和管理 得到大脑 内容",
   "type": "module",
   "main": "dist/mcp/index.js",

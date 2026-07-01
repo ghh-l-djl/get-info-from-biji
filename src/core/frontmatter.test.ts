@@ -46,10 +46,16 @@ describe('extractSourceTags', () => {
 });
 
 describe('buildFrontmatter', () => {
-  it('always includes an empty tags field for manual classification', () => {
+  it('includes the vault lifecycle fields for biji-synced inbox notes', () => {
     const fm = buildFrontmatter({ web_title: '标题', url: 'https://biji.com/note/1' });
 
+    expect(fm).toContain('source: ai');
+    expect(fm).toContain('ai_skill: biji-sync');
+    expect(fm).toContain('status: inbox');
+    expect(fm).toContain('publish_status: none');
     expect(fm).toContain('tags: []');
+    expect(fm).not.toContain('publish: []');
+    expect(fm).not.toContain('tags: [inbox]');
   });
 
   it('renders sourceTags as a block list when present', () => {
@@ -62,14 +68,14 @@ describe('buildFrontmatter', () => {
     expect(fm).toContain('sourceTags:\n  - "美食"\n  - "探店"');
   });
 
-  it('omits sourceTags entirely when empty', () => {
+  it('renders sourceTags as an empty list when empty', () => {
     const fm = buildFrontmatter({
       web_title: '标题',
       url: 'https://biji.com/note/1',
       sourceTags: [],
     });
 
-    expect(fm).not.toContain('sourceTags');
+    expect(fm).toContain('sourceTags: []');
   });
 
   it('quotes the title safely and wraps the block in --- delimiters', () => {

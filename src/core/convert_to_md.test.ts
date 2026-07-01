@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('convertToMarkdown frontmatter', () => {
-  it('writes a frontmatter block with url, publishTime, empty tags, and extracted sourceTags', async () => {
+  it('writes a frontmatter block with lifecycle fields, empty tags, and extracted sourceTags', async () => {
     const data: BijiApiResponse = {
       c: {
         content: '好吃到哭 #美食 #探店推荐',
@@ -36,7 +36,13 @@ describe('convertToMarkdown frontmatter', () => {
     expect(written).toContain('---\n');
     expect(written).toContain('url: "https://www.biji.com/note/note-123"');
     expect(written).toContain('publishTime: "2025-06-15T15:06:40.000Z"');
+    expect(written).toContain('source: ai');
+    expect(written).toContain('ai_skill: biji-sync');
+    expect(written).toContain('status: inbox');
+    expect(written).toContain('publish_status: none');
     expect(written).toContain('tags: []');
+    expect(written).not.toContain('publish: []');
+    expect(written).not.toContain('tags: [inbox]');
     expect(written).toContain('sourceTags:\n  - "美食"\n  - "探店推荐"');
     expect(written).toContain('好吃到哭 ＃美食 ＃探店推荐');
     expect(written).not.toMatch(/(?<!＃)#美食/);
@@ -51,6 +57,6 @@ describe('convertToMarkdown frontmatter', () => {
     const written = readFileSync(result.mdPath, 'utf-8');
 
     expect(written).toContain('url: "https://www.biji.com/note/note-456"');
-    expect(written).not.toContain('sourceTags');
+    expect(written).toContain('sourceTags: []');
   });
 });

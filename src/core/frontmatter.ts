@@ -57,6 +57,7 @@ export function buildFrontmatter(fields: FrontmatterFields): string {
   lines.push('source: ai');
   lines.push('ai_skill: biji-sync');
   lines.push('status: inbox');
+  lines.push('publish_status: none');
   lines.push('tags: []');
 
   if (fields.sourceTags && fields.sourceTags.length > 0) {
@@ -64,9 +65,10 @@ export function buildFrontmatter(fields: FrontmatterFields): string {
     for (const tag of fields.sourceTags) {
       lines.push(`  - ${yamlString(tag)}`);
     }
+  } else {
+    lines.push('sourceTags: []');
   }
 
-  lines.push('publish: []');
   lines.push('---', '');
   return lines.join('\n') + '\n';
 }
